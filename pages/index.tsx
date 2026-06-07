@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
@@ -193,8 +193,19 @@ export default function Home() {
           </div>
           <div className="players">
             {room.players.map((player) => (
-              <span key={player.id} className={player.id === socket?.id ? "me" : ""}>
-                {player.name}{player.isCpu ? " / CPU" : ""}{player.team ? ` T${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}
+              <span
+                key={player.id}
+                className={`playerCard${player.id === socket?.id ? " me" : ""}`}
+                style={{ "--team-color": player.team ? teamCssColor(player.team) : player.isCpu ? "#9aa6b2" : "#ff6b6b" } as CSSProperties}
+              >
+                <span className="playerAvatar" aria-hidden="true">
+                  <span className="playerHelmet" />
+                  <span className="playerBody" />
+                </span>
+                <span className="playerMeta">
+                  <strong>{player.name}</strong>
+                  <small>{player.isCpu ? "CPU Racer" : "Player"}{player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
+                </span>
               </span>
             ))}
           </div>

@@ -202,19 +202,19 @@ function syncSprites(
     let group = groups.get(player.id);
     let label = labels.get(player.id);
     if (!group) {
-      const body = scene.add.rectangle(0, 0, 34, 46, player.team ? teamColor(player.team) : player.isCpu ? 0xb8c0cc : 0xff6b6b).setStrokeStyle(2, 0xffffff);
-      const face = scene.add.circle(8, -8, 4, 0xffffff);
-      group = scene.add.group([body, face]);
-      label = scene.add.text(0, 0, player.name, { fontFamily: "Arial", fontSize: "15px", color: "#ffffff", stroke: "#000000", strokeThickness: 3 });
+      group = createPlayerSprite(scene, player);
+      label = scene.add.text(0, 0, player.name, {
+        fontFamily: "Arial",
+        fontSize: "15px",
+        color: "#ffffff",
+        stroke: "#102538",
+        strokeThickness: 4
+      });
       groups.set(player.id, group);
       labels.set(player.id, label);
     }
-    group.getChildren().forEach((child) => {
-      const object = child as import("phaser").GameObjects.Shape;
-      object.setPosition(player.x + 17 + (object.type === "Arc" ? (player.facing === "right" ? 8 : -8) : 0), player.y + 23);
-      object.setAlpha(player.connected ? 1 : 0.35);
-    });
-    label?.setPosition(player.x - 14, player.y - 28);
+    updatePlayerSprite(group, player);
+    label?.setPosition(player.x - 18, player.y - 34).setAlpha(player.connected ? 1 : 0.35);
   }
   for (const [id, group] of groups) {
     if (!active.has(id)) {
@@ -226,8 +226,72 @@ function syncSprites(
   }
 }
 
+function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["players"][number]) {
+  const uniformColor = player.team ? teamColor(player.team) : player.isCpu ? 0x9aa6b2 : 0xff6b6b;
+  const trimColor = player.isCpu ? 0xdde4ea : 0xffffff;
+  const bibColor = 0xf8fbff;
+  const skinColor = 0xffd8a8;
+  const objects = [
+    scene.add.ellipse(0, 0, 38, 12, 0x061522, 0.38).setName("shadow"),
+    scene.add.rectangle(0, 0, 10, 17, shadeColor(uniformColor, -0.18)).setName("backLeg"),
+    scene.add.rectangle(0, 0, 10, 17, shadeColor(uniformColor, -0.05)).setName("frontLeg"),
+    scene.add.rectangle(0, 0, 30, 28, uniformColor).setStrokeStyle(2, trimColor, 0.95).setName("torso"),
+    scene.add.rectangle(0, 0, 16, 14, bibColor, 0.96).setStrokeStyle(1, 0x1f2f3a, 0.45).setName("bib"),
+    scene.add.circle(0, 0, 14, uniformColor).setStrokeStyle(2, trimColor, 0.95).setName("helmet"),
+    scene.add.rectangle(0, 0, 18, 6, 0x193449, 0.92).setStrokeStyle(1, 0x9de7ff, 0.75).setName("visor"),
+    scene.add.circle(0, 0, 5, skinColor, 0.95).setName("face"),
+    scene.add.rectangle(0, 0, 22, 3, trimColor, 0.85).setName("helmetStripe")
+  ];
+  const number = scene.add.text(0, 0, player.isCpu ? "AI" : player.team ? `T${player.team}` : "SR", {
+    fontFamily: "Arial",
+    fontSize: "7px",
+    color: "#102538",
+    fontStyle: "bold"
+  }).setName("bibNumber");
+  return scene.add.group([...objects, number]);
+}
+
+function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: RoomState["players"][number]) {
+  const centerX = player.x + 17;
+  const centerY = player.y + 23;
+  const faceDir = player.facing === "right" ? 1 : -1;
+  const jumpLean = player.jumping ? -2 : 0;
+  const positions: Record<string, { x: number; y: number; angle?: number }> = {
+    shadow: { x: centerX, y: player.y + 47 },
+    backLeg: { x: centerX - 7 * faceDir, y: centerY + 15, angle: player.jumping ? -12 * faceDir : 0 },
+    frontLeg: { x: centerX + 7 * faceDir, y: centerY + 15, angle: player.jumping ? 14 * faceDir : 0 },
+    torso: { x: centerX, y: centerY + 3 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
+    bib: { x: centerX + 1 * faceDir, y: centerY + 3 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
+    bibNumber: { x: centerX - 6 + 1 * faceDir, y: centerY - 1 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
+    helmet: { x: centerX, y: centerY - 19 + jumpLean },
+    visor: { x: centerX + 6 * faceDir, y: centerY - 21 + jumpLean },
+    face: { x: centerX + 8 * faceDir, y: centerY - 15 + jumpLean },
+    helmetStripe: { x: centerX, y: centerY - 29 + jumpLean }
+  };
+  group.getChildren().forEach((child) => {
+    const object = child as import("phaser").GameObjects.GameObject & { setPosition: (x: number, y: number) => void; setAlpha: (alpha: number) => void; setRotation?: (rotation: number) => void };
+    const position = positions[object.name];
+    if (!position) return;
+    object.setPosition(position.x, position.y);
+    object.setAlpha(player.connected ? 1 : 0.35);
+    object.setRotation?.(PhaserMathDegToRad(position.angle ?? 0));
+  });
+}
+
 function teamColor(team: number) {
-  return [0xff6b6b, 0x4dabf7, 0x51cf66, 0xffd43b, 0xda77f2][team % 5];
+  return [0xff6b6b, 0x4dabf7, 0x51cf66, 0xffd43b][team - 1] || 0xda77f2;
+}
+
+function shadeColor(color: number, amount: number) {
+  const adjust = (channel: number) => Math.max(0, Math.min(255, Math.round(channel + channel * amount)));
+  const r = adjust((color >> 16) & 255);
+  const g = adjust((color >> 8) & 255);
+  const b = adjust(color & 255);
+  return (r << 16) + (g << 8) + b;
+}
+
+function PhaserMathDegToRad(degrees: number) {
+  return degrees * (Math.PI / 180);
 }
 
 function spawnEffect(scene: import("phaser").Scene, Phaser: typeof import("phaser"), effect: EffectBurst) {
