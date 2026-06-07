@@ -1,5 +1,5 @@
 param(
-  [string]$Region = "us-east-1",
+  [string]$Region = "ap-northeast-1",
   [string]$StackName = "sky-rush-ecs",
   [string]$EcrRepository = "sky-rush",
   [switch]$DeleteEcr

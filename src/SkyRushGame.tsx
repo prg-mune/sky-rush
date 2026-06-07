@@ -29,6 +29,9 @@ export default function SkyRushGame({ socket, room }: Props) {
       let jumpStarted = 0;
       let jumpHeldMs = 0;
       let jumpRequestId = 0;
+      let lastSentAt = 0;
+      let lastSentSignature = "";
+      let lastSentJumpRequestId = 0;
       let seq = 0;
 
       class MainScene extends Phaser.Scene {
@@ -48,7 +51,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           const me = roomRef.current.players.find((player) => player.id === socket.id);
           if (me && this.cameraTarget) this.cameraTarget.setPosition(me.x, me.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
-          socket.emit("input", currentInput());
+          sendInput(performance.now());
         }
 
         destroy() {
@@ -118,15 +121,35 @@ export default function SkyRushGame({ socket, room }: Props) {
         }
       }
 
-      function currentInput(): ClientInput {
+      function currentInput(seqValue: number): ClientInput {
+        const heldMs = keys.jump ? performance.now() - jumpStarted : jumpHeldMs;
         return {
           left: keys.left,
           right: keys.right,
           jump: keys.jump,
-          jumpHeldMs: keys.jump ? performance.now() - jumpStarted : jumpHeldMs,
+          jumpHeldMs: heldMs,
           jumpRequestId,
-          seq: ++seq
+          seq: seqValue
         };
+      }
+
+      function inputSignature() {
+        return `${Number(keys.left)}:${Number(keys.right)}:${Number(keys.jump)}:${jumpRequestId}:${Math.round((keys.jump ? performance.now() - jumpStarted : jumpHeldMs) / 50)}`;
+      }
+
+      function sendInput(now: number) {
+        const signature = inputSignature();
+        const jumpRequested = jumpRequestId !== lastSentJumpRequestId;
+        const changed = signature !== lastSentSignature;
+        const intervalElapsed = now - lastSentAt >= 50;
+        if (!jumpRequested && !changed && !intervalElapsed) return;
+        if (!jumpRequested && changed && now - lastSentAt < 50) return;
+
+        seq += 1;
+        socket.emit("input", currentInput(seq));
+        lastSentAt = now;
+        lastSentSignature = signature;
+        lastSentJumpRequestId = jumpRequestId;
       }
 
       function onEffectBurst(effect: EffectBurst) {

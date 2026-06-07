@@ -281,7 +281,8 @@ function stepPhysics(io: SkyRushServer, dt: number) {
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => handle(req, res));
   const io: SkyRushServer = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    transports: ["websocket"]
   });
 
   io.on("connection", (socket) => {

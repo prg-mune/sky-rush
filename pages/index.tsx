@@ -30,7 +30,7 @@ export default function Home() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const nextSocket: TypedSocket = io();
+    const nextSocket: TypedSocket = io({ transports: ["websocket"] });
     setSocket(nextSocket);
     nextSocket.on("rooms", setRooms);
     nextSocket.on("roomState", (nextRoom) => {
