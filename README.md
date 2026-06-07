@@ -20,7 +20,7 @@
 - チーム登山用の味方踏み台強化、チーム専用ジャンプ台、高壁エリア
 - ラストスパート演出
 - 押し出し時の軽いエフェクト
-- Docker/ECS向け単一コンテナ構成
+- Docker向け単一コンテナ構成
 
 ## ローカル起動
 
@@ -31,17 +31,19 @@ npm run dev
 
 ブラウザで `http://localhost:3000` を開きます。複数タブでログインすると複数人プレイを試せます。
 
-## ECSデプロイの流れ
+## Docker起動
 
-このリポジトリはGitHub ActionsからECR/ECSへデプロイできます。
+Dockerが使える環境では、以下で単一コンテナとして起動できます。
 
-1. AWS IAMでGitHub Actions用OIDCロールを作成します。
-2. GitHubリポジトリのActions secretsに `AWS_ROLE_ARN` を追加します。
-3. ECSタスク実行ロールが `arn:aws:iam::027355626215:role/ecsTaskExecutionRole` で存在することを確認します。
-4. `main` ブランチへpushすると `.github/workflows/deploy.yml` がDockerイメージをECRへpushし、ECSサービスを更新します。
-5. Socket.IOのWebSocketを使うため、ALBのアイドルタイムアウトは長めに設定します。
+```bash
+docker compose up --build
+```
 
-v0.1はサーバメモリ管理です。ECSタスクを複数台に増やす場合、同じ部屋の参加者が別タスクへ分散しないようにALBのスティッキーセッションを有効化するか、Redisなどの共有状態管理を追加してください。
+## デプロイについて
+
+AWS/ECS向けの自動デプロイ設定はまだ有効化していません。まずはローカルやDockerでゲーム内容を固めてから、ECR/ECS、App Runner、Renderなどの公開先を選びます。
+
+v0.1はサーバメモリ管理です。複数台構成にする場合、同じ部屋の参加者が別サーバーへ分散しないようにスティッキーセッションを有効化するか、Redisなどの共有状態管理を追加してください。
 
 ## 操作
 
