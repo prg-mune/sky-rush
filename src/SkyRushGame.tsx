@@ -7,7 +7,7 @@ type Props = {
   room: RoomState;
 };
 
-type PlatformView = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" };
+type PlatformView = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" | "stretch"; minW?: number; maxW?: number; periodMs?: number; phaseMs?: number };
 
 export default function SkyRushGame({ socket, room }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -24,6 +24,7 @@ export default function SkyRushGame({ socket, room }: Props) {
 
       const playerSprites = new Map<string, Phaser.GameObjects.Group>();
       const nameLabels = new Map<string, Phaser.GameObjects.Text>();
+      const stretchBars: Array<{ platform: PlatformView; body: Phaser.GameObjects.Rectangle; cap: Phaser.GameObjects.Rectangle }> = [];
       const keys = { left: false, right: false, jump: false };
       let activeScene: Phaser.Scene | null = null;
       let jumpStarted = 0;
@@ -51,6 +52,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           const me = roomRef.current.players.find((player) => player.id === socket.id);
           if (me && this.cameraTarget) this.cameraTarget.setPosition(me.x, me.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
+          updateStretchBars(stretchBars);
           sendInput(performance.now());
         }
 
@@ -70,8 +72,13 @@ export default function SkyRushGame({ socket, room }: Props) {
           activePlatforms(roomRef.current.mode).forEach((platform, index) => {
             const isJumpPad = platform.kind === "jumpPad" || platform.kind === "teamJumpPad";
             const isTeamPad = platform.kind === "teamJumpPad";
-            const color = isTeamPad ? 0x74c0fc : isJumpPad ? 0x8ce99a : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
-            this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, isTeamPad ? 0xd0ebff : isJumpPad ? 0xeaff8f : 0xffffff, 0.7);
+            const isStretch = platform.kind === "stretch";
+            const color = isStretch ? 0xf783ac : isTeamPad ? 0x74c0fc : isJumpPad ? 0x8ce99a : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
+            const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, isStretch ? 0xffdeeb : isTeamPad ? 0xd0ebff : isJumpPad ? 0xeaff8f : 0xffffff, 0.7);
+            if (isStretch) {
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, Math.max(20, platform.w - 34), 6, 0xffdeeb, 0.75);
+              stretchBars.push({ platform, body, cap });
+            }
             if (isJumpPad) {
               this.add.triangle(platform.x + platform.w / 2, platform.y - 12, 0, 16, 18, 16, 9, 0, isTeamPad ? 0xd0ebff : 0xeaff8f, 0.9);
             }
@@ -268,14 +275,14 @@ function activePlatforms(mode: RoomState["mode"]): PlatformView[] {
     { x: 450, y: 2660, w: 320, h: 24 },
     { x: 1060, y: 2660, w: 330, h: 24, kind: "jumpPad" },
     { x: 1380, y: 2380, w: 300, h: 24 },
-    { x: 760, y: 2380, w: 310, h: 24 },
+    { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
     { x: 520, y: 2100, w: 290, h: 24, kind: "jumpPad" },
     { x: 1130, y: 2100, w: 300, h: 24 },
     { x: 860, y: 1820, w: 290, h: 24 },
     { x: 1220, y: 1540, w: 270, h: 24 },
     { x: 750, y: 1540, w: 270, h: 24 },
     { x: 1000, y: 1260, w: 260, h: 24, kind: "jumpPad" },
-    { x: 780, y: 980, w: 240, h: 24 },
+    { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
     { x: 1160, y: 980, w: 240, h: 24 },
     { x: 940, y: 700, w: 240, h: 24, kind: "jumpPad" },
     { x: 980, y: 420, w: 260, h: 24 }
@@ -290,4 +297,34 @@ function activePlatforms(mode: RoomState["mode"]): PlatformView[] {
     ...base.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
     ...teamPlatforms
   ].sort((a, b) => b.y - a.y);
+}
+
+function currentPlatform(platform: PlatformView): PlatformView {
+  if (platform.kind !== "stretch") return platform;
+  const minW = platform.minW ?? platform.w;
+  const maxW = platform.maxW ?? platform.w;
+  const periodMs = platform.periodMs ?? 3200;
+  const phaseMs = platform.phaseMs ?? 0;
+  const t = ((Date.now() + phaseMs) % periodMs) / periodMs;
+  const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
+  const w = minW + (maxW - minW) * eased;
+  return {
+    ...platform,
+    x: platform.x + platform.w / 2 - w / 2,
+    w
+  };
+}
+
+function updateStretchBars(stretchBars: Array<{ platform: PlatformView; body: import("phaser").GameObjects.Rectangle; cap: import("phaser").GameObjects.Rectangle }>) {
+  for (const bar of stretchBars) {
+    const current = currentPlatform(bar.platform);
+    const centerX = current.x + current.w / 2;
+    const centerY = current.y + current.h / 2;
+    bar.body.setPosition(centerX, centerY);
+    bar.body.setSize(current.w, current.h);
+    bar.body.scaleX = 1;
+    bar.cap.setPosition(centerX, centerY);
+    bar.cap.setSize(Math.max(20, current.w - 34), 6);
+    bar.cap.scaleX = 1;
+  }
 }

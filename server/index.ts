@@ -23,6 +23,7 @@ type PlayerRuntime = PlayerSnapshot & {
   input: ClientInput;
   lastJumpRequestId: number;
   onGround: boolean;
+  standingOnPlayerId: string | null;
   wallTouch: "left" | "right" | null;
   aiTargetX?: number;
   aiNextThinkAt?: number;
@@ -37,7 +38,7 @@ type RoomRuntime = Omit<RoomState, "players"> & {
 
 type SkyRushServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type SkyRushSocket = IOSocket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type Platform = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" };
+type Platform = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" | "stretch"; minW?: number; maxW?: number; periodMs?: number; phaseMs?: number };
 
 const PASSWORD = "progress4649";
 const PORT = Number(process.env.PORT || 3000);
@@ -74,14 +75,14 @@ const platforms: Platform[] = [
   { x: 450, y: 2660, w: 320, h: 24 },
   { x: 1060, y: 2660, w: 330, h: 24, kind: "jumpPad" },
   { x: 1380, y: 2380, w: 300, h: 24 },
-  { x: 760, y: 2380, w: 310, h: 24 },
+  { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
   { x: 520, y: 2100, w: 290, h: 24, kind: "jumpPad" },
   { x: 1130, y: 2100, w: 300, h: 24 },
   { x: 860, y: 1820, w: 290, h: 24 },
   { x: 1220, y: 1540, w: 270, h: 24 },
   { x: 750, y: 1540, w: 270, h: 24 },
   { x: 1000, y: 1260, w: 260, h: 24, kind: "jumpPad" },
-  { x: 780, y: 980, w: 240, h: 24 },
+  { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
   { x: 1160, y: 980, w: 240, h: 24 },
   { x: 940, y: 700, w: 240, h: 24, kind: "jumpPad" },
   { x: 980, y: 420, w: 260, h: 24 }
@@ -99,7 +100,7 @@ const COUNTDOWN_MS = 4000;
 function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
-    players: [...room.players.values()].map(({ input, onGround, wallTouch, socketId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, ...player }) => player)
+    players: [...room.players.values()].map(({ input, onGround, standingOnPlayerId, wallTouch, socketId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, ...player }) => player)
   };
 }
 
@@ -149,6 +150,7 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     input: { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 },
     lastJumpRequestId: 0,
     onGround: false,
+    standingOnPlayerId: null,
     wallTouch: null,
     aiSkill: isCpu ? 0.72 + Math.random() * 0.26 : 1,
     lastPushEffectAt: 0
@@ -187,11 +189,15 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       const requestedJump = input.jumpRequestId !== player.lastJumpRequestId;
       if (requestedJump && (player.onGround || player.wallTouch)) {
         player.lastJumpRequestId = input.jumpRequestId;
-        const jumpPower = Math.min(stage.jumpMax, stage.jumpMin + Math.min(input.jumpHeldMs, 650) * 0.8);
-        player.vy = -jumpPower;
+        const standingOn = player.standingOnPlayerId ? room.players.get(player.standingOnPlayerId) : undefined;
+        const sameTeamBoost = room.mode === "team" && standingOn && player.team && player.team === standingOn.team;
+        const stompBoost = standingOn ? (sameTeamBoost ? 1.38 : 1.08) : 1;
+        const jumpPower = Math.min(stage.jumpMax, stage.jumpMin + Math.min(input.jumpHeldMs, 650) * 0.8) * stompBoost;
+        player.vy = -Math.min(stage.jumpMax * 1.45, jumpPower);
         player.jumping = true;
         if (player.wallTouch === "left") player.vx = stage.moveSpeed * 1.25;
         if (player.wallTouch === "right") player.vx = -stage.moveSpeed * 1.25;
+        if (standingOn) emitEffect(io, room, { kind: "jumpPad", x: player.x + stage.playerW / 2, y: player.y + stage.playerH });
       } else if (requestedJump) {
         player.lastJumpRequestId = input.jumpRequestId;
       }
@@ -202,6 +208,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       player.y += player.vy * dt;
       player.wallTouch = null;
       player.onGround = false;
+      player.standingOnPlayerId = null;
 
       const bounds = courseBoundsAt(player.y);
       if (player.x < bounds.left) {
@@ -253,10 +260,10 @@ function stepPhysics(io: SkyRushServer, dt: number) {
           player.y + stage.playerH <= other.y + 16;
         if (landingOnPlayer) {
           player.y = other.y - stage.playerH;
-          const sameTeam = room.mode === "team" && player.team && player.team === other.team;
-          player.vy = -stage.jumpMax * (sameTeam ? 1.38 : 1.02);
-          player.onGround = false;
-          if (sameTeam) emitEffect(io, room, { kind: "jumpPad", x: player.x + stage.playerW / 2, y: player.y + stage.playerH });
+          player.vy = 0;
+          player.onGround = true;
+          player.jumping = false;
+          player.standingOnPlayerId = other.id;
         }
       }
 
@@ -436,11 +443,28 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
 }
 
 function activePlatforms(mode: GameMode) {
-  if (mode !== "team") return platforms;
+  const current = platforms.map(currentPlatform);
+  if (mode !== "team") return current;
   return [
-    ...platforms.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
-    ...teamChallengePlatforms
+    ...current.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
+    ...teamChallengePlatforms.map(currentPlatform)
   ].sort((a, b) => b.y - a.y);
+}
+
+function currentPlatform(platform: Platform): Platform {
+  if (platform.kind !== "stretch") return platform;
+  const minW = platform.minW ?? platform.w;
+  const maxW = platform.maxW ?? platform.w;
+  const periodMs = platform.periodMs ?? 3200;
+  const phaseMs = platform.phaseMs ?? 0;
+  const t = ((Date.now() + phaseMs) % periodMs) / periodMs;
+  const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
+  const w = minW + (maxW - minW) * eased;
+  return {
+    ...platform,
+    x: platform.x + platform.w / 2 - w / 2,
+    w
+  };
 }
 
 function hasNearbyTeammate(room: RoomRuntime, player: PlayerRuntime, platform: Platform) {
