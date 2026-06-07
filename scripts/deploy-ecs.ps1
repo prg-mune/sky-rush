@@ -43,8 +43,13 @@ Write-Host "Region: $Region"
 Write-Host "ECR repository: $EcrRepository"
 Write-Host "Image: $ImageUri"
 
+$PreviousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 aws ecr describe-repositories --repository-names $EcrRepository --region $Region *> $null
-if ($LASTEXITCODE -eq 0) {
+$DescribeRepositoryExitCode = $LASTEXITCODE
+$ErrorActionPreference = $PreviousErrorActionPreference
+
+if ($DescribeRepositoryExitCode -eq 0) {
   Write-Host "ECR repository already exists."
 } else {
   Write-Host "Creating ECR repository..."
