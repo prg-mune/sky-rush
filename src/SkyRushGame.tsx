@@ -227,24 +227,25 @@ function syncSprites(
 }
 
 function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["players"][number]) {
-  const uniformColor = player.team ? teamColor(player.team) : player.isCpu ? 0x9aa6b2 : 0xff6b6b;
-  const trimColor = player.isCpu ? 0xdde4ea : 0xffffff;
+  const bodyColor = player.team ? teamColor(player.team) : player.isCpu ? 0x9aa6b2 : 0xff6b6b;
   const bibColor = 0xf8fbff;
-  const skinColor = 0xffd8a8;
   const objects = [
-    scene.add.ellipse(0, 0, 38, 12, 0x061522, 0.38).setName("shadow"),
-    scene.add.rectangle(0, 0, 10, 17, shadeColor(uniformColor, -0.18)).setName("backLeg"),
-    scene.add.rectangle(0, 0, 10, 17, shadeColor(uniformColor, -0.05)).setName("frontLeg"),
-    scene.add.rectangle(0, 0, 30, 28, uniformColor).setStrokeStyle(2, trimColor, 0.95).setName("torso"),
-    scene.add.rectangle(0, 0, 16, 14, bibColor, 0.96).setStrokeStyle(1, 0x1f2f3a, 0.45).setName("bib"),
-    scene.add.circle(0, 0, 14, uniformColor).setStrokeStyle(2, trimColor, 0.95).setName("helmet"),
-    scene.add.rectangle(0, 0, 18, 6, 0x193449, 0.92).setStrokeStyle(1, 0x9de7ff, 0.75).setName("visor"),
-    scene.add.circle(0, 0, 5, skinColor, 0.95).setName("face"),
-    scene.add.rectangle(0, 0, 22, 3, trimColor, 0.85).setName("helmetStripe")
+    scene.add.ellipse(0, 0, 40, 12, 0x061522, 0.36).setName("shadow"),
+    scene.add.ellipse(0, 0, 38, 34, bodyColor).setStrokeStyle(3, 0xffffff, 0.95).setName("body"),
+    scene.add.circle(0, 0, 8, shadeColor(bodyColor, 0.18), 0.85).setName("topBlob"),
+    scene.add.ellipse(0, 0, 18, 8, 0xffffff, 0.42).setName("shine"),
+    scene.add.circle(0, 0, 5, 0x102538).setName("leftEye"),
+    scene.add.circle(0, 0, 5, 0x102538).setName("rightEye"),
+    scene.add.circle(0, 0, 2, 0xffffff).setName("leftEyeSpark"),
+    scene.add.circle(0, 0, 2, 0xffffff).setName("rightEyeSpark"),
+    scene.add.ellipse(0, 0, 6, 4, 0xff9fb0, 0.68).setName("leftCheek"),
+    scene.add.ellipse(0, 0, 6, 4, 0xff9fb0, 0.68).setName("rightCheek"),
+    scene.add.arc(0, 0, 7, 20, 160, false).setStrokeStyle(2.5, 0x102538).setName("mouth"),
+    scene.add.rectangle(0, 0, 15, 10, bibColor, 0.96).setStrokeStyle(1, 0x102538, 0.45).setName("bib")
   ];
   const number = scene.add.text(0, 0, player.isCpu ? "AI" : player.team ? `T${player.team}` : "SR", {
     fontFamily: "Arial",
-    fontSize: "7px",
+    fontSize: "6px",
     color: "#102538",
     fontStyle: "bold"
   }).setName("bibNumber");
@@ -255,26 +256,37 @@ function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: R
   const centerX = player.x + 17;
   const centerY = player.y + 23;
   const faceDir = player.facing === "right" ? 1 : -1;
-  const jumpLean = player.jumping ? -2 : 0;
-  const positions: Record<string, { x: number; y: number; angle?: number }> = {
-    shadow: { x: centerX, y: player.y + 47 },
-    backLeg: { x: centerX - 7 * faceDir, y: centerY + 15, angle: player.jumping ? -12 * faceDir : 0 },
-    frontLeg: { x: centerX + 7 * faceDir, y: centerY + 15, angle: player.jumping ? 14 * faceDir : 0 },
-    torso: { x: centerX, y: centerY + 3 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
-    bib: { x: centerX + 1 * faceDir, y: centerY + 3 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
-    bibNumber: { x: centerX - 6 + 1 * faceDir, y: centerY - 1 + jumpLean, angle: player.jumping ? -5 * faceDir : 0 },
-    helmet: { x: centerX, y: centerY - 19 + jumpLean },
-    visor: { x: centerX + 6 * faceDir, y: centerY - 21 + jumpLean },
-    face: { x: centerX + 8 * faceDir, y: centerY - 15 + jumpLean },
-    helmetStripe: { x: centerX, y: centerY - 29 + jumpLean }
+  const bob = player.jumping ? -3 : 0;
+  const squashX = player.jumping ? 0.94 : 1;
+  const squashY = player.jumping ? 1.08 : 1;
+  const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number }> = {
+    shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.78 : 1, scaleY: 1 },
+    body: { x: centerX, y: centerY + 5 + bob, scaleX: squashX, scaleY: squashY },
+    topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob, scaleX: squashX, scaleY: squashY },
+    shine: { x: centerX - 8 * faceDir, y: centerY - 4 + bob, angle: -18 * faceDir },
+    leftEye: { x: centerX - 8 + 2 * faceDir, y: centerY + bob },
+    rightEye: { x: centerX + 8 + 2 * faceDir, y: centerY + bob },
+    leftEyeSpark: { x: centerX - 6 + 2 * faceDir, y: centerY - 2 + bob },
+    rightEyeSpark: { x: centerX + 10 + 2 * faceDir, y: centerY - 2 + bob },
+    leftCheek: { x: centerX - 13 + faceDir, y: centerY + 8 + bob },
+    rightCheek: { x: centerX + 13 + faceDir, y: centerY + 8 + bob },
+    mouth: { x: centerX + 1 * faceDir, y: centerY + 7 + bob },
+    bib: { x: centerX, y: centerY + 17 + bob, angle: player.jumping ? -4 * faceDir : 0 },
+    bibNumber: { x: centerX - 5, y: centerY + 13 + bob, angle: player.jumping ? -4 * faceDir : 0 }
   };
   group.getChildren().forEach((child) => {
-    const object = child as import("phaser").GameObjects.GameObject & { setPosition: (x: number, y: number) => void; setAlpha: (alpha: number) => void; setRotation?: (rotation: number) => void };
+    const object = child as import("phaser").GameObjects.GameObject & {
+      setPosition: (x: number, y: number) => void;
+      setAlpha: (alpha: number) => void;
+      setRotation?: (rotation: number) => void;
+      setScale?: (x: number, y?: number) => void;
+    };
     const position = positions[object.name];
     if (!position) return;
     object.setPosition(position.x, position.y);
     object.setAlpha(player.connected ? 1 : 0.35);
     object.setRotation?.(PhaserMathDegToRad(position.angle ?? 0));
+    object.setScale?.(position.scaleX ?? 1, position.scaleY ?? position.scaleX ?? 1);
   });
 }
 

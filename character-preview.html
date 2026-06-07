@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sky Rush Mascot Character Preview</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, #78d3ff 0%, #e5f8ff 35%, #174057 35%, #0f1720 100%);
+      color: #eef6fb;
+      font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    h1,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      color: #102538;
+      font-size: 34px;
+      letter-spacing: 0;
+      text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    .note {
+      color: #28566d;
+      font-weight: 800;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(47, 107, 139, 0.92), rgba(17, 35, 49, 0.98));
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      padding: 14px;
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 188px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background:
+        radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.24), transparent 22%),
+        linear-gradient(180deg, rgba(120, 211, 255, 0.34), rgba(16, 37, 56, 0.1)),
+        #102538;
+      overflow: hidden;
+    }
+
+    .platform {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 30px;
+      height: 16px;
+      border-radius: 8px;
+      background: #e9c46a;
+      box-shadow:
+        inset 0 4px 0 #ffe08a,
+        inset 0 -4px 0 #8d6a2f,
+        0 8px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    canvas {
+      position: relative;
+      z-index: 1;
+      width: 148px;
+      height: 148px;
+      image-rendering: auto;
+    }
+
+    .caption {
+      display: grid;
+      gap: 4px;
+      margin-top: 12px;
+    }
+
+    .caption strong {
+      font-size: 16px;
+    }
+
+    .caption span {
+      color: #b7cfe0;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .tag {
+      display: inline-flex;
+      width: fit-content;
+      margin-top: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: #102538;
+      background: #ffd47a;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    @media (max-width: 700px) {
+      header {
+        display: grid;
+        align-items: start;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Sky Rush Mascot Character Preview</h1>
+        <p class="note">人型じゃない、跳ねて押し合う用のかわいい物体キャラ案</p>
+      </div>
+    </header>
+
+    <section class="board" id="board"></section>
+  </main>
+
+  <script>
+    const characters = [
+      {
+        name: "ぷにラッシュ",
+        desc: "スライム系。着地・押し合い・踏み台が一番かわいく見える。",
+        tag: "本命",
+        color: "#ff6b6b",
+        accent: "#ffd6dc",
+        variant: "slime"
+      },
+      {
+        name: "もくもくレーサー",
+        desc: "雲のかたまり。空ステージとの相性が強く、チーム色も乗せやすい。",
+        tag: "空感",
+        color: "#4dabf7",
+        accent: "#dff7ff",
+        variant: "cloud"
+      },
+      {
+        name: "ヘルメットまる",
+        desc: "丸い競技ボール。スポーツ大会感を残しつつ人間っぽさを消せる。",
+        tag: "読みやすい",
+        color: "#51cf66",
+        accent: "#c9ffe1",
+        variant: "helmetBall"
+      },
+      {
+        name: "ほしピョン",
+        desc: "星形マスコット。ジャンプ台やラストスパート演出と相性が良い。",
+        tag: "派手",
+        color: "#ffd43b",
+        accent: "#fff2a8",
+        variant: "star"
+      },
+      {
+        name: "ロケット豆",
+        desc: "豆みたいな胴体に小さいブースター。移動やジャンプが気持ちよく見える。",
+        tag: "速そう",
+        color: "#da77f2",
+        accent: "#f3d9ff",
+        variant: "bean"
+      },
+      {
+        name: "CPUキューブ",
+        desc: "CPU専用の四角いトレーニング端末。人間プレイヤーと混ざっても判別しやすい。",
+        tag: "CPU",
+        color: "#9aa6b2",
+        accent: "#dce7ef",
+        variant: "cube"
+      }
+    ];
+
+    const board = document.querySelector("#board");
+
+    for (const character of characters) {
+      const card = document.createElement("article");
+      card.className = "card";
+
+      const stage = document.createElement("div");
+      stage.className = "stage";
+      const platform = document.createElement("div");
+      platform.className = "platform";
+      const canvas = document.createElement("canvas");
+      canvas.width = 296;
+      canvas.height = 296;
+      canvas.setAttribute("aria-label", character.name);
+      drawMascot(canvas, character);
+      stage.append(platform, canvas);
+
+      const caption = document.createElement("div");
+      caption.className = "caption";
+      caption.innerHTML = `<strong>${character.name}</strong><span>${character.desc}</span><em class="tag">${character.tag}</em>`;
+
+      card.append(stage, caption);
+      board.append(card);
+    }
+
+    function drawMascot(canvas, character) {
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const c = {
+        body: character.color,
+        light: character.accent,
+        dark: shade(character.color, -25),
+        outline: "#102538",
+        eye: "#102538",
+        white: "#ffffff",
+        blush: "#ff9fb0",
+        glass: "#183449",
+        glassHi: "#9de7ff",
+        fire: "#ffd43b",
+        fire2: "#ff8f3f"
+      };
+
+      softShadow(ctx, 148, 238, 54, 13);
+
+      if (character.variant === "slime") drawSlime(ctx, c);
+      if (character.variant === "cloud") drawCloud(ctx, c);
+      if (character.variant === "helmetBall") drawHelmetBall(ctx, c);
+      if (character.variant === "star") drawStar(ctx, c);
+      if (character.variant === "bean") drawBean(ctx, c);
+      if (character.variant === "cube") drawCube(ctx, c);
+    }
+
+    function drawSlime(ctx, c) {
+      blob(ctx, [
+        [84, 190], [78, 141], [100, 96], [139, 70], [183, 84],
+        [212, 123], [214, 177], [188, 214], [139, 224], [101, 212]
+      ], c.outline, 10);
+      blob(ctx, [
+        [92, 187], [87, 143], [106, 105], [140, 82], [178, 94],
+        [202, 126], [204, 175], [183, 204], [140, 214], [106, 203]
+      ], c.body, 0);
+      shine(ctx, 115, 105, 36, 18, c.light);
+      face(ctx, 119, 151, 58, "happy");
+      smallHelmetStripe(ctx, 106, 91, 78, c.white);
+    }
+
+    function drawCloud(ctx, c) {
+      cloudShape(ctx, c.outline, 92, 116, 13);
+      cloudShape(ctx, c.light, 92, 116, 0);
+      blob(ctx, [[96, 174], [112, 136], [149, 126], [191, 142], [202, 177], [184, 207], [136, 214], [103, 200]], c.body, 0, 0.88);
+      face(ctx, 118, 154, 56, "sleepy");
+      goggles(ctx, 112, 128, c);
+      smallHelmetStripe(ctx, 104, 102, 78, c.body);
+    }
+
+    function drawHelmetBall(ctx, c) {
+      circle(ctx, 148, 154, 82, c.outline);
+      circle(ctx, 148, 154, 72, c.body);
+      arcBand(ctx, 148, 118, 62, c.light);
+      roundedRect(ctx, 106, 129, 88, 30, 15, c.glass, c.outline, 5);
+      roundedRect(ctx, 116, 136, 64, 8, 4, c.glassHi, null, 0, 0.75);
+      face(ctx, 126, 166, 48, "bold");
+      bib(ctx, 126, 184, "SR", c);
+    }
+
+    function drawStar(ctx, c) {
+      starPath(ctx, 148, 151, 82, 48, c.outline, 10);
+      starPath(ctx, 148, 151, 70, 42, c.body, 0);
+      shine(ctx, 118, 104, 34, 16, c.light);
+      face(ctx, 119, 150, 56, "happy");
+      bib(ctx, 127, 180, "GO", c);
+    }
+
+    function drawBean(ctx, c) {
+      blob(ctx, [
+        [110, 219], [80, 191], [80, 136], [105, 87], [148, 68],
+        [193, 77], [220, 119], [211, 171], [176, 214]
+      ], c.outline, 10);
+      blob(ctx, [
+        [116, 207], [91, 185], [91, 138], [112, 96], [149, 81],
+        [186, 89], [207, 123], [199, 169], [171, 203]
+      ], c.body, 0);
+      rocket(ctx, 82, 180, c, -0.2);
+      rocket(ctx, 196, 178, c, 0.2);
+      face(ctx, 120, 143, 58, "excited");
+      shine(ctx, 123, 94, 34, 19, c.light);
+    }
+
+    function drawCube(ctx, c) {
+      roundedRect(ctx, 82, 82, 132, 132, 22, c.outline, null, 0);
+      roundedRect(ctx, 94, 92, 108, 108, 18, c.body, null, 0);
+      roundedRect(ctx, 109, 119, 78, 34, 14, c.glass, c.outline, 5);
+      roundedRect(ctx, 122, 128, 20, 8, 4, c.glassHi, null, 0);
+      roundedRect(ctx, 154, 128, 20, 8, 4, c.glassHi, null, 0);
+      rect(ctx, 132, 61, 32, 16, c.outline);
+      circle(ctx, 148, 53, 12, c.glassHi);
+      bib(ctx, 128, 166, "AI", c);
+    }
+
+    function face(ctx, x, y, gap, mood) {
+      if (mood === "sleepy") {
+        ctx.strokeStyle = "#102538";
+        ctx.lineWidth = 7;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 18, y + 4);
+        ctx.moveTo(x + gap, y + 4);
+        ctx.lineTo(x + gap + 18, y);
+        ctx.stroke();
+      } else {
+        eye(ctx, x, y, mood === "bold" ? 15 : 13);
+        eye(ctx, x + gap, y, mood === "bold" ? 15 : 13);
+      }
+
+      ctx.strokeStyle = "#102538";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      if (mood === "excited") {
+        ctx.moveTo(x + 26, y + 35);
+        ctx.quadraticCurveTo(x + 36, y + 48, x + 48, y + 35);
+      } else {
+        ctx.moveTo(x + 25, y + 32);
+        ctx.quadraticCurveTo(x + 38, y + 44, x + 52, y + 32);
+      }
+      ctx.stroke();
+      circle(ctx, x - 6, y + 23, 8, "#ff9fb0", 0.72);
+      circle(ctx, x + gap + 26, y + 23, 8, "#ff9fb0", 0.72);
+    }
+
+    function eye(ctx, x, y, r) {
+      circle(ctx, x, y, r, "#102538");
+      circle(ctx, x + 4, y - 4, Math.max(3, r / 3), "#ffffff");
+    }
+
+    function bib(ctx, x, y, text, c) {
+      roundedRect(ctx, x, y, 44, 32, 9, "#f8fbff", c.outline, 4);
+      ctx.fillStyle = "#102538";
+      ctx.font = "900 16px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x + 22, y + 17);
+    }
+
+    function goggles(ctx, x, y, c) {
+      roundedRect(ctx, x, y, 72, 25, 13, c.glass, c.outline, 5);
+      roundedRect(ctx, x + 10, y + 7, 46, 6, 3, c.glassHi, null, 0, 0.82);
+    }
+
+    function smallHelmetStripe(ctx, x, y, w, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + w / 2, y - 16, x + w, y);
+      ctx.stroke();
+    }
+
+    function softShadow(ctx, x, y, rx, ry) {
+      ctx.save();
+      ctx.globalAlpha = 0.32;
+      ctx.fillStyle = "#061522";
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function shine(ctx, x, y, w, h, color) {
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w, h, -0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function circle(ctx, x, y, r, color, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function rect(ctx, x, y, w, h, color, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+    }
+
+    function roundedRect(ctx, x, y, w, h, r, fill, stroke, strokeWidth = 0, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      if (stroke && strokeWidth) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function blob(ctx, points, color, strokeWidth = 0, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (let i = 0; i < points.length; i += 1) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+        const midX = (current[0] + next[0]) / 2;
+        const midY = (current[1] + next[1]) / 2;
+        ctx.quadraticCurveTo(current[0], current[1], midX, midY);
+      }
+      ctx.closePath();
+      ctx.fill();
+      if (strokeWidth) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function cloudShape(ctx, color, x, y, strokeWidth) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + 12, y + 42, 34, Math.PI * 0.8, Math.PI * 1.85);
+      ctx.arc(x + 55, y + 26, 45, Math.PI, Math.PI * 1.9);
+      ctx.arc(x + 103, y + 43, 38, Math.PI * 1.15, Math.PI * 2.1);
+      ctx.arc(x + 92, y + 76, 38, Math.PI * 1.8, Math.PI * 0.65);
+      ctx.arc(x + 35, y + 80, 42, Math.PI * 0.28, Math.PI * 1.16);
+      ctx.closePath();
+      ctx.fill();
+      if (strokeWidth) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function starPath(ctx, x, y, outer, inner, color, strokeWidth) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i += 1) {
+        const angle = -Math.PI / 2 + i * Math.PI / 5;
+        const radius = i % 2 === 0 ? outer : inner;
+        const px = x + Math.cos(angle) * radius;
+        const py = y + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      if (strokeWidth) {
+        ctx.strokeStyle = color;
+        ctx.lineJoin = "round";
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function arcBand(ctx, x, y, r, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 16;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(x, y, r, Math.PI * 1.12, Math.PI * 1.88);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function rocket(ctx, x, y, c, rotate) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotate);
+      roundedRect(ctx, -10, -14, 20, 36, 8, "#d9e2ea", c.outline, 4);
+      ctx.fillStyle = c.fire;
+      ctx.beginPath();
+      ctx.moveTo(-6, 22);
+      ctx.lineTo(0, 42);
+      ctx.lineTo(7, 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = c.fire2;
+      ctx.beginPath();
+      ctx.moveTo(0, 24);
+      ctx.lineTo(4, 35);
+      ctx.lineTo(8, 24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function shade(hex, percent) {
+      const raw = hex.replace("#", "");
+      const num = parseInt(raw, 16);
+      const amt = percent / 100;
+      const r = clamp(((num >> 16) & 255) * (1 + amt));
+      const g = clamp(((num >> 8) & 255) * (1 + amt));
+      const b = clamp((num & 255) * (1 + amt));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function clamp(value) {
+      return Math.max(0, Math.min(255, Math.round(value)));
+    }
+  </script>
+</body>
+</html>

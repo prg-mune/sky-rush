@@ -191,48 +191,50 @@ input[type="range"] {
 }
 
 .playerHelmet {
-  top: 1px;
-  width: 24px;
-  height: 18px;
+  top: 3px;
+  width: 14px;
+  height: 11px;
+  margin-left: -5px;
   border: 2px solid #ffffff;
-  border-radius: 14px 14px 8px 8px;
+  border-radius: 999px;
+  box-shadow: inset 2px -2px 0 rgba(0, 0, 0, 0.12);
 }
 
 .playerHelmet::after {
   content: "";
   position: absolute;
-  right: 1px;
+  left: 5px;
   top: 8px;
-  width: 13px;
+  width: 7px;
   height: 4px;
-  border-radius: 4px;
-  background: #193449;
-  box-shadow: 0 0 0 1px rgba(157, 231, 255, 0.85);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.48);
 }
 
 .playerBody {
-  bottom: 1px;
-  width: 26px;
-  height: 21px;
+  bottom: 2px;
+  width: 29px;
+  height: 27px;
   border: 2px solid #ffffff;
-  border-radius: 7px 7px 5px 5px;
+  border-radius: 16px 16px 13px 13px;
+  box-shadow: inset 3px -4px 0 rgba(0, 0, 0, 0.12);
 }
 
 .playerBody::after {
-  content: "SR";
+  content: "";
   position: absolute;
-  left: 50%;
-  top: 4px;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 11px;
-  border-radius: 3px;
-  background: #f8fbff;
-  color: #102538;
-  font-size: 7px;
-  font-weight: 900;
-  line-height: 11px;
-  text-align: center;
+  left: 7px;
+  top: 9px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #102538;
+  box-shadow:
+    10px 0 0 #102538,
+    1px -1px 0 1px #ffffff,
+    11px -1px 0 1px #ffffff,
+    -3px 8px 0 -1px rgba(255, 159, 176, 0.72),
+    15px 8px 0 -1px rgba(255, 159, 176, 0.72);
 }
 
 .playerMeta {
