@@ -110,7 +110,7 @@ export default function Home() {
             <input
               value={playerName}
               onChange={(event) => setPlayerName(event.target.value)}
-              placeholder="むねさん"
+              placeholder="Player01"
               maxLength={16}
               autoComplete="off"
               name="sky-rush-player-name"
