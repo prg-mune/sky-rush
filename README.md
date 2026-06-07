@@ -41,7 +41,25 @@ docker compose up --build
 
 ## デプロイについて
 
-AWS/ECS向けの自動デプロイ設定はまだ有効化していません。まずはローカルやDockerでゲーム内容を固めてから、ECR/ECS、App Runner、Renderなどの公開先を選びます。
+AWS CLIとDockerが使える環境では、PowerShellからECS/Fargateへデプロイできます。
+
+```powershell
+.\scripts\deploy-ecs.ps1
+```
+
+このスクリプトはECRリポジトリ作成、Dockerイメージのビルドとpush、ECS/Fargate、ALB、VPC、CloudWatch Logsの作成/更新を行います。デフォルトでは `us-east-1` に `sky-rush-ecs` スタックを作成します。
+
+削除する場合:
+
+```powershell
+.\scripts\delete-ecs.ps1
+```
+
+ECRリポジトリも含めて削除する場合:
+
+```powershell
+.\scripts\delete-ecs.ps1 -DeleteEcr
+```
 
 v0.1はサーバメモリ管理です。複数台構成にする場合、同じ部屋の参加者が別サーバーへ分散しないようにスティッキーセッションを有効化するか、Redisなどの共有状態管理を追加してください。
 
