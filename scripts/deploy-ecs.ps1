@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $true
 $ContainerPort = 3000
 
 function Require-Command($Name) {
@@ -18,6 +19,13 @@ function Require-Command($Name) {
 Require-Command "aws"
 Require-Command "docker"
 Require-Command "git"
+
+function Invoke-Native($Command, $Arguments) {
+  & $Command @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Command failed with exit code $LASTEXITCODE."
+  }
+}
 
 $Identity = aws sts get-caller-identity --region $Region | ConvertFrom-Json
 $AccountId = $Identity.Account
@@ -33,37 +41,44 @@ Write-Host "Region: $Region"
 Write-Host "ECR repository: $EcrRepository"
 Write-Host "Image: $ImageUri"
 
-try {
-  aws ecr describe-repositories --repository-names $EcrRepository --region $Region | Out-Null
+aws ecr describe-repositories --repository-names $EcrRepository --region $Region *> $null
+if ($LASTEXITCODE -eq 0) {
   Write-Host "ECR repository already exists."
-} catch {
+} else {
   Write-Host "Creating ECR repository..."
-  aws ecr create-repository `
-    --repository-name $EcrRepository `
-    --image-scanning-configuration scanOnPush=true `
-    --region $Region | Out-Null
+  Invoke-Native "aws" @(
+    "ecr", "create-repository",
+    "--repository-name", $EcrRepository,
+    "--image-scanning-configuration", "scanOnPush=true",
+    "--region", $Region
+  )
 }
 
 Write-Host "Logging in to ECR..."
 aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $Registry
+if ($LASTEXITCODE -ne 0) {
+  throw "Docker login failed. Make sure Docker Desktop is running."
+}
 
 Write-Host "Building Docker image..."
-docker build -t $ImageUri .
+Invoke-Native "docker" @("build", "-t", $ImageUri, ".")
 
 Write-Host "Pushing Docker image..."
-docker push $ImageUri
+Invoke-Native "docker" @("push", $ImageUri)
 
 Write-Host "Deploying CloudFormation stack..."
-aws cloudformation deploy `
-  --template-file infra/cloudformation.yml `
-  --stack-name $StackName `
-  --parameter-overrides `
-    AppName=$AppName `
-    ImageUri=$ImageUri `
-    ContainerPort=$ContainerPort `
-    DesiredCount=$DesiredCount `
-  --capabilities CAPABILITY_NAMED_IAM `
-  --region $Region
+Invoke-Native "aws" @(
+  "cloudformation", "deploy",
+  "--template-file", "infra/cloudformation.yml",
+  "--stack-name", $StackName,
+  "--parameter-overrides",
+  "AppName=$AppName",
+  "ImageUri=$ImageUri",
+  "ContainerPort=$ContainerPort",
+  "DesiredCount=$DesiredCount",
+  "--capabilities", "CAPABILITY_NAMED_IAM",
+  "--region", $Region
+)
 
 Write-Host "Deployment outputs:"
 aws cloudformation describe-stacks `
