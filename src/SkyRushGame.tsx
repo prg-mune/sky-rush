@@ -12,7 +12,9 @@ type PlatformView = { x: number; y: number; w: number; h: number; kind?: "jumpPa
 export default function SkyRushGame({ socket, room }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef(room);
+  const serverClockOffsetRef = useRef(0);
   roomRef.current = room;
+  serverClockOffsetRef.current = room.serverTime - Date.now();
 
   useEffect(() => {
     let game: import("phaser").Game | null = null;
@@ -52,7 +54,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           const me = roomRef.current.players.find((player) => player.id === socket.id);
           if (me && this.cameraTarget) this.cameraTarget.setPosition(me.x, me.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
-          updateStretchBars(stretchBars);
+          updateStretchBars(stretchBars, Date.now() + serverClockOffsetRef.current);
           sendInput(performance.now());
         }
 
@@ -336,13 +338,13 @@ function activePlatforms(mode: RoomState["mode"], preset: StagePreset): Platform
   ].sort((a, b) => b.y - a.y);
 }
 
-function currentPlatform(platform: PlatformView): PlatformView {
+function currentPlatform(platform: PlatformView, now: number): PlatformView {
   if (platform.kind !== "stretch") return platform;
   const minW = platform.minW ?? platform.w;
   const maxW = platform.maxW ?? platform.w;
   const periodMs = platform.periodMs ?? 3200;
   const phaseMs = platform.phaseMs ?? 0;
-  const t = ((Date.now() + phaseMs) % periodMs) / periodMs;
+  const t = ((now + phaseMs) % periodMs) / periodMs;
   const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
   const w = minW + (maxW - minW) * eased;
   return {
@@ -352,9 +354,9 @@ function currentPlatform(platform: PlatformView): PlatformView {
   };
 }
 
-function updateStretchBars(stretchBars: Array<{ platform: PlatformView; body: import("phaser").GameObjects.Rectangle; cap: import("phaser").GameObjects.Rectangle }>) {
+function updateStretchBars(stretchBars: Array<{ platform: PlatformView; body: import("phaser").GameObjects.Rectangle; cap: import("phaser").GameObjects.Rectangle }>, now: number) {
   for (const bar of stretchBars) {
-    const current = currentPlatform(bar.platform);
+    const current = currentPlatform(bar.platform, now);
     const centerX = current.x + current.w / 2;
     const centerY = current.y + current.h / 2;
     bar.body.setPosition(centerX, centerY);

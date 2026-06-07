@@ -43,6 +43,7 @@ export type RoomState = {
   winningTeam?: number;
   startedAt?: number;
   finishedAt?: number;
+  serverTime: number;
   players: PlayerSnapshot[];
 };
 

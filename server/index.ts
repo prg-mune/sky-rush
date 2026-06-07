@@ -138,6 +138,7 @@ const COUNTDOWN_MS = 4000;
 function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
+    serverTime: Date.now(),
     players: [...room.players.values()].map(({ input, onGround, standingOnPlayerId, wallTouch, socketId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, ...player }) => player)
   };
 }
@@ -260,11 +261,13 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       }
 
       for (const platform of activePlatforms(room)) {
-        const withinX = player.x + stage.playerW > platform.x && player.x < platform.x + platform.w;
+        const platformMargin = platform.kind === "stretch" ? 14 : 0;
+        const withinX = player.x + stage.playerW > platform.x - platformMargin && player.x < platform.x + platform.w + platformMargin;
         const previousBottom = previousY + stage.playerH;
         const currentBottom = player.y + stage.playerH;
         const platformBottom = platform.y + platform.h;
-        const landedOnTop = player.vy >= 0 && withinX && previousBottom <= platform.y && currentBottom >= platform.y;
+        const topGrace = platform.kind === "stretch" ? 10 : 0;
+        const landedOnTop = player.vy >= 0 && withinX && previousBottom <= platform.y + topGrace && currentBottom >= platform.y;
         const hitUnderside = player.vy < 0 && withinX && previousY >= platformBottom && player.y <= platformBottom;
         if (landedOnTop) {
           player.y = platform.y - stage.playerH;
@@ -354,6 +357,7 @@ app.prepare().then(() => {
         maxPlayers: Math.max(2, Math.min(50, maxPlayers)),
         ownerId: socket.id,
         started: false,
+        serverTime: Date.now(),
         players: new Map()
       };
       rooms.set(id, room);
@@ -501,21 +505,22 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
 
 function activePlatforms(room: Pick<RoomRuntime, "mode" | "preset">) {
   const set = stagePresets[room.preset] ?? stagePresets.balanced;
-  const current = set.platforms.map(currentPlatform);
+  const now = Date.now();
+  const current = set.platforms.map((platform) => currentPlatform(platform, now));
   if (room.mode !== "team") return current;
   return [
     ...current.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
-    ...set.teamChallengePlatforms.map(currentPlatform)
+    ...set.teamChallengePlatforms.map((platform) => currentPlatform(platform, now))
   ].sort((a, b) => b.y - a.y);
 }
 
-function currentPlatform(platform: Platform): Platform {
+function currentPlatform(platform: Platform, now: number): Platform {
   if (platform.kind !== "stretch") return platform;
   const minW = platform.minW ?? platform.w;
   const maxW = platform.maxW ?? platform.w;
   const periodMs = platform.periodMs ?? 3200;
   const phaseMs = platform.phaseMs ?? 0;
-  const t = ((Date.now() + phaseMs) % periodMs) / periodMs;
+  const t = ((now + phaseMs) % periodMs) / periodMs;
   const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
   const w = minW + (maxW - minW) * eased;
   return {
