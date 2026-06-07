@@ -33,10 +33,12 @@ npm run dev
 
 ## ECSデプロイの流れ
 
-1. ECRリポジトリを作成します。
-2. DockerイメージをビルドしてECRへpushします。
-3. `infra/ecs-task-definition.example.json` の `<account-id>` と `<region>` を環境に合わせます。
-4. ECS Fargateサービスを作成し、Application Load Balancerからコンテナポート `3000` に転送します。
+このリポジトリはGitHub ActionsからECR/ECSへデプロイできます。
+
+1. AWS IAMでGitHub Actions用OIDCロールを作成します。
+2. GitHubリポジトリのActions secretsに `AWS_ROLE_ARN` を追加します。
+3. ECSタスク実行ロールが `arn:aws:iam::027355626215:role/ecsTaskExecutionRole` で存在することを確認します。
+4. `main` ブランチへpushすると `.github/workflows/deploy.yml` がDockerイメージをECRへpushし、ECSサービスを更新します。
 5. Socket.IOのWebSocketを使うため、ALBのアイドルタイムアウトは長めに設定します。
 
 v0.1はサーバメモリ管理です。ECSタスクを複数台に増やす場合、同じ部屋の参加者が別タスクへ分散しないようにALBのスティッキーセッションを有効化するか、Redisなどの共有状態管理を追加してください。
