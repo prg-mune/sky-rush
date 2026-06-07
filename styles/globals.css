@@ -164,6 +164,23 @@ input[type="range"] {
   border-color: #f2b84b;
 }
 
+.teamPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.teamPicker button {
+  min-width: 92px;
+  background: #10202d;
+  font-weight: 800;
+}
+
+.teamPicker button.active {
+  border-color: transparent;
+}
+
 .toast {
   margin-bottom: 16px;
   border: 1px solid #d56b6b;

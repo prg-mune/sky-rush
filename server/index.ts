@@ -10,7 +10,8 @@ import type {
   ResultRow,
   RoomState,
   RoomSummary,
-  ServerToClientEvents
+  ServerToClientEvents,
+  StagePreset
 } from "../shared/types";
 
 type SocketData = {
@@ -39,6 +40,7 @@ type RoomRuntime = Omit<RoomState, "players"> & {
 type SkyRushServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type SkyRushSocket = IOSocket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type Platform = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" | "stretch"; minW?: number; maxW?: number; periodMs?: number; phaseMs?: number };
+type PlatformSet = { platforms: Platform[]; teamChallengePlatforms: Platform[] };
 
 const PASSWORD = "progress4649";
 const PORT = Number(process.env.PORT || 3000);
@@ -61,7 +63,7 @@ const stage = {
   playerH: 46
 };
 
-const platforms: Platform[] = [
+const balancedPlatforms: Platform[] = [
   { x: 520, y: 4060, w: 1160, h: 28 },
   { x: 260, y: 3780, w: 420, h: 24 },
   { x: 980, y: 3780, w: 420, h: 24, kind: "jumpPad" },
@@ -88,11 +90,47 @@ const platforms: Platform[] = [
   { x: 980, y: 420, w: 260, h: 24 }
 ];
 
-const teamChallengePlatforms: Platform[] = [
+const balancedTeamChallengePlatforms: Platform[] = [
   { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
   { x: 990, y: 1120, w: 300, h: 28 },
   { x: 1015, y: 840, w: 250, h: 24 }
 ];
+
+const stagePresets: Record<StagePreset, PlatformSet> = {
+  balanced: {
+    platforms: balancedPlatforms,
+    teamChallengePlatforms: balancedTeamChallengePlatforms
+  },
+  boost: {
+    platforms: balancedPlatforms.map((platform) => {
+      if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "jumpPad" };
+      return platform;
+    }),
+    teamChallengePlatforms: [
+      { x: 850, y: 1720, w: 500, h: 28, kind: "teamJumpPad" },
+      { x: 1030, y: 1160, w: 280, h: 24, kind: "jumpPad" },
+      { x: 1015, y: 840, w: 250, h: 24 }
+    ]
+  },
+  stretch: {
+    platforms: balancedPlatforms.map((platform) => {
+      if ([3780, 2940, 2100, 1540, 700].includes(platform.y)) {
+        return { ...platform, kind: "stretch", minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
+      }
+      return platform;
+    }),
+    teamChallengePlatforms: balancedTeamChallengePlatforms
+  },
+  teamwork: {
+    platforms: balancedPlatforms.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
+    teamChallengePlatforms: [
+      { x: 820, y: 1760, w: 520, h: 28, kind: "teamJumpPad" },
+      { x: 980, y: 1220, w: 310, h: 28, kind: "teamJumpPad" },
+      { x: 1020, y: 860, w: 240, h: 24 },
+      { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
+    ]
+  }
+};
 
 const CPU_TARGET_PLAYERS = 20;
 const COUNTDOWN_MS = 4000;
@@ -109,6 +147,7 @@ function roomSummary(room: RoomRuntime): RoomSummary {
     id: room.id,
     name: room.name,
     mode: room.mode,
+    preset: room.preset,
     playerCount: room.players.size,
     maxPlayers: room.maxPlayers,
     started: room.started
@@ -132,7 +171,7 @@ function results(room: RoomRuntime): ResultRow[] {
     }));
 }
 
-function makePlayer(socketId: string, name: string, index: number, mode: GameMode, isCpu = false): PlayerRuntime {
+function makePlayer(socketId: string, name: string, index: number, mode: GameMode, isCpu = false, preferredTeam?: number): PlayerRuntime {
   return {
     id: socketId,
     socketId,
@@ -146,7 +185,7 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     altitude: 0,
     connected: true,
     isCpu,
-    team: mode === "team" ? (index % 4) + 1 : undefined,
+    team: mode === "team" ? preferredTeam ?? (index % 4) + 1 : undefined,
     input: { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 },
     lastJumpRequestId: 0,
     onGround: false,
@@ -220,7 +259,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         player.wallTouch = "right";
       }
 
-      for (const platform of activePlatforms(room.mode)) {
+      for (const platform of activePlatforms(room)) {
         const withinX = player.x + stage.playerW > platform.x && player.x < platform.x + platform.w;
         const previousBottom = previousY + stage.playerH;
         const currentBottom = player.y + stage.playerH;
@@ -304,13 +343,14 @@ app.prepare().then(() => {
 
     socket.on("listRooms", () => socket.emit("rooms", [...rooms.values()].map(roomSummary)));
 
-    socket.on("createRoom", ({ name, mode, maxPlayers }) => {
+    socket.on("createRoom", ({ name, mode, maxPlayers, preset }) => {
       if (!socket.data.playerName) return socket.emit("errorMessage", "ログインしてください");
       const id = `room-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const room: RoomRuntime = {
         id,
         name: name.trim().slice(0, 24) || `${socket.data.playerName}の部屋`,
         mode,
+        preset,
         maxPlayers: Math.max(2, Math.min(50, maxPlayers)),
         ownerId: socket.id,
         started: false,
@@ -331,6 +371,14 @@ app.prepare().then(() => {
     });
 
     socket.on("leaveRoom", () => leaveRoom(io, socket));
+
+    socket.on("setTeam", (team) => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      const player = room?.players.get(socket.id);
+      if (!room || !player || room.mode !== "team" || room.started || player.isCpu) return;
+      player.team = Math.max(1, Math.min(4, Math.round(team)));
+      io.to(room.id).emit("roomState", roomSnapshot(room));
+    });
 
     socket.on("startGame", () => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
@@ -363,7 +411,7 @@ function joinRoom(
   leaveRoom(io, socket);
   socket.join(room.id);
   socket.data.roomId = room.id;
-  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode));
+  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, false, nextHumanTeam(room)));
   io.to(room.id).emit("roomState", roomSnapshot(room));
 }
 
@@ -398,9 +446,18 @@ function addCpuPlayers(room: RoomRuntime, count: number) {
   }
 }
 
+function nextHumanTeam(room: RoomRuntime) {
+  if (room.mode !== "team") return undefined;
+  const counts = [1, 2, 3, 4].map((team) => ({
+    team,
+    count: [...room.players.values()].filter((player) => !player.isCpu && player.team === team).length
+  }));
+  return counts.sort((a, b) => a.count - b.count || a.team - b.team)[0].team;
+}
+
 function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   const now = Date.now();
-  const coursePlatforms = activePlatforms(room.mode);
+  const coursePlatforms = activePlatforms(room);
   const nearbyPlatforms = coursePlatforms
     .filter((platform) => platform.y < player.y - 50 && platform.y > player.y - 470)
     .sort((a, b) => b.y - a.y);
@@ -442,12 +499,13 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   player.input.seq += 1;
 }
 
-function activePlatforms(mode: GameMode) {
-  const current = platforms.map(currentPlatform);
-  if (mode !== "team") return current;
+function activePlatforms(room: Pick<RoomRuntime, "mode" | "preset">) {
+  const set = stagePresets[room.preset] ?? stagePresets.balanced;
+  const current = set.platforms.map(currentPlatform);
+  if (room.mode !== "team") return current;
   return [
     ...current.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
-    ...teamChallengePlatforms.map(currentPlatform)
+    ...set.teamChallengePlatforms.map(currentPlatform)
   ].sort((a, b) => b.y - a.y);
 }
 

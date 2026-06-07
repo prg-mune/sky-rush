@@ -1,4 +1,5 @@
 export type GameMode = "battle" | "team";
+export type StagePreset = "balanced" | "boost" | "stretch" | "teamwork";
 
 export type LoginSession = {
   playerName: string;
@@ -8,6 +9,7 @@ export type RoomSummary = {
   id: string;
   name: string;
   mode: GameMode;
+  preset: StagePreset;
   playerCount: number;
   maxPlayers: number;
   started: boolean;
@@ -33,6 +35,7 @@ export type RoomState = {
   id: string;
   name: string;
   mode: GameMode;
+  preset: StagePreset;
   maxPlayers: number;
   ownerId: string;
   started: boolean;
@@ -79,9 +82,10 @@ export type ServerToClientEvents = {
 export type ClientToServerEvents = {
   login: (payload: { playerName: string; password: string }, cb: (ok: boolean, message?: string) => void) => void;
   listRooms: () => void;
-  createRoom: (payload: { name: string; mode: GameMode; maxPlayers: number }) => void;
+  createRoom: (payload: { name: string; mode: GameMode; maxPlayers: number; preset: StagePreset }) => void;
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   startGame: () => void;
+  setTeam: (team: number) => void;
   input: (input: ClientInput) => void;
 };

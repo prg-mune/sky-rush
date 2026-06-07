@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
-import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents } from "../shared/types";
+import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents, StagePreset } from "../shared/types";
 
 type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -69,7 +69,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           }
           this.add.rectangle(1100, 160, 440, 42, 0xf5d76e);
           this.add.text(992, 134, "GOAL", { fontFamily: "Arial", fontSize: "28px", color: "#17202a", fontStyle: "bold" });
-          activePlatforms(roomRef.current.mode).forEach((platform, index) => {
+          activePlatforms(roomRef.current.mode, roomRef.current.preset).forEach((platform, index) => {
             const isJumpPad = platform.kind === "jumpPad" || platform.kind === "teamJumpPad";
             const isTeamPad = platform.kind === "teamJumpPad";
             const isStretch = platform.kind === "stretch";
@@ -200,7 +200,7 @@ function syncSprites(
     let group = groups.get(player.id);
     let label = labels.get(player.id);
     if (!group) {
-      const body = scene.add.rectangle(0, 0, 34, 46, player.isCpu ? 0xb8c0cc : player.team ? teamColor(player.team) : 0xff6b6b).setStrokeStyle(2, 0xffffff);
+      const body = scene.add.rectangle(0, 0, 34, 46, player.team ? teamColor(player.team) : player.isCpu ? 0xb8c0cc : 0xff6b6b).setStrokeStyle(2, 0xffffff);
       const face = scene.add.circle(8, -8, 4, 0xffffff);
       group = scene.add.group([body, face]);
       label = scene.add.text(0, 0, player.name, { fontFamily: "Arial", fontSize: "15px", color: "#ffffff", stroke: "#000000", strokeThickness: 3 });
@@ -260,7 +260,7 @@ function courseBoundsAt(y: number) {
   };
 }
 
-function activePlatforms(mode: RoomState["mode"]): PlatformView[] {
+function activePlatforms(mode: RoomState["mode"], preset: StagePreset): PlatformView[] {
   const base: PlatformView[] = [
     { x: 520, y: 4060, w: 1160, h: 28 },
     { x: 260, y: 3780, w: 420, h: 24 },
@@ -287,14 +287,51 @@ function activePlatforms(mode: RoomState["mode"]): PlatformView[] {
     { x: 940, y: 700, w: 240, h: 24, kind: "jumpPad" },
     { x: 980, y: 420, w: 260, h: 24 }
   ];
-  if (mode !== "team") return base;
-  const teamPlatforms: PlatformView[] = [
-    { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
-    { x: 990, y: 1120, w: 300, h: 28 },
-    { x: 1015, y: 840, w: 250, h: 24 }
-  ];
+  const presets: Record<StagePreset, { base: PlatformView[]; team: PlatformView[] }> = {
+    balanced: {
+      base,
+      team: [
+        { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
+        { x: 990, y: 1120, w: 300, h: 28 },
+        { x: 1015, y: 840, w: 250, h: 24 }
+      ]
+    },
+    boost: {
+      base: base.map((platform) => [3500, 2940, 2380, 1540].includes(platform.y) ? { ...platform, kind: "jumpPad" } : platform),
+      team: [
+        { x: 850, y: 1720, w: 500, h: 28, kind: "teamJumpPad" },
+        { x: 1030, y: 1160, w: 280, h: 24, kind: "jumpPad" },
+        { x: 1015, y: 840, w: 250, h: 24 }
+      ]
+    },
+    stretch: {
+      base: base.map((platform) => {
+        if ([3780, 2940, 2100, 1540, 700].includes(platform.y)) {
+          return { ...platform, kind: "stretch", minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
+        }
+        return platform;
+      }),
+      team: [
+        { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
+        { x: 990, y: 1120, w: 300, h: 28 },
+        { x: 1015, y: 840, w: 250, h: 24 }
+      ]
+    },
+    teamwork: {
+      base: base.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
+      team: [
+        { x: 820, y: 1760, w: 520, h: 28, kind: "teamJumpPad" },
+        { x: 980, y: 1220, w: 310, h: 28, kind: "teamJumpPad" },
+        { x: 1020, y: 860, w: 240, h: 24 },
+        { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
+      ]
+    }
+  };
+  const selected = presets[preset] ?? presets.balanced;
+  if (mode !== "team") return selected.base;
+  const teamPlatforms: PlatformView[] = selected.team;
   return [
-    ...base.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
+    ...selected.base.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
     ...teamPlatforms
   ].sort((a, b) => b.y - a.y);
 }
