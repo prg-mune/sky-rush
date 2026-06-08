@@ -28,6 +28,7 @@ export default function SkyRushGame({ socket, room }: Props) {
       const nameLabels = new Map<string, Phaser.GameObjects.Text>();
       const stretchBars: Array<{ platform: PlatformView; body: Phaser.GameObjects.Rectangle; cap: Phaser.GameObjects.Rectangle }> = [];
       const keys = { left: false, right: false, jump: false };
+      const touchInput = { pointerId: -1, startX: 0 };
       let activeScene: Phaser.Scene | null = null;
       let jumpStarted = 0;
       let jumpHeldMs = 0;
@@ -48,6 +49,10 @@ export default function SkyRushGame({ socket, room }: Props) {
           this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.16);
           window.addEventListener("keydown", onKeyDown);
           window.addEventListener("keyup", onKeyUp);
+          hostRef.current?.addEventListener("pointerdown", onPointerDown);
+          hostRef.current?.addEventListener("pointermove", onPointerMove);
+          hostRef.current?.addEventListener("pointerup", onPointerUp);
+          hostRef.current?.addEventListener("pointercancel", onPointerUp);
         }
 
         update() {
@@ -62,6 +67,10 @@ export default function SkyRushGame({ socket, room }: Props) {
           activeScene = null;
           window.removeEventListener("keydown", onKeyDown);
           window.removeEventListener("keyup", onKeyUp);
+          hostRef.current?.removeEventListener("pointerdown", onPointerDown);
+          hostRef.current?.removeEventListener("pointermove", onPointerMove);
+          hostRef.current?.removeEventListener("pointerup", onPointerUp);
+          hostRef.current?.removeEventListener("pointercancel", onPointerUp);
         }
 
         private world() {
@@ -121,13 +130,48 @@ export default function SkyRushGame({ socket, room }: Props) {
         if (event.code === "KeyA" || event.code === "ArrowLeft") keys.left = false;
         if (event.code === "KeyD" || event.code === "ArrowRight") keys.right = false;
         if (event.code === "Space") {
-          if (keys.jump) {
-            jumpHeldMs = performance.now() - jumpStarted;
-            jumpRequestId += 1;
-          }
-          keys.jump = false;
+          finishJumpCharge();
           event.preventDefault();
         }
+      }
+
+      function onPointerDown(event: PointerEvent) {
+        if (event.pointerType === "mouse" || touchInput.pointerId !== -1) return;
+        touchInput.pointerId = event.pointerId;
+        touchInput.startX = event.clientX;
+        hostRef.current?.setPointerCapture(event.pointerId);
+        keys.left = false;
+        keys.right = false;
+        if (!keys.jump) jumpStarted = performance.now();
+        keys.jump = true;
+        event.preventDefault();
+      }
+
+      function onPointerMove(event: PointerEvent) {
+        if (event.pointerId !== touchInput.pointerId) return;
+        const deltaX = event.clientX - touchInput.startX;
+        const deadZone = 22;
+        keys.left = deltaX < -deadZone;
+        keys.right = deltaX > deadZone;
+        event.preventDefault();
+      }
+
+      function onPointerUp(event: PointerEvent) {
+        if (event.pointerId !== touchInput.pointerId) return;
+        finishJumpCharge();
+        keys.left = false;
+        keys.right = false;
+        touchInput.pointerId = -1;
+        hostRef.current?.releasePointerCapture(event.pointerId);
+        event.preventDefault();
+      }
+
+      function finishJumpCharge() {
+        if (keys.jump) {
+          jumpHeldMs = performance.now() - jumpStarted;
+          jumpRequestId += 1;
+        }
+        keys.jump = false;
       }
 
       function currentInput(seqValue: number): ClientInput {
