@@ -7,7 +7,21 @@ type Props = {
   room: RoomState;
 };
 
-type PlatformView = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" | "stretch"; minW?: number; maxW?: number; periodMs?: number; phaseMs?: number };
+type PlatformView = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  kind?: "stretch" | "vanish";
+  minW?: number;
+  maxW?: number;
+  periodMs?: number;
+  phaseMs?: number;
+  visibleMs?: number;
+  hiddenMs?: number;
+  active?: boolean;
+  visibility?: number;
+};
 
 export default function SkyRushGame({ socket, room }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -26,7 +40,7 @@ export default function SkyRushGame({ socket, room }: Props) {
 
       const playerSprites = new Map<string, Phaser.GameObjects.Group>();
       const nameLabels = new Map<string, Phaser.GameObjects.Text>();
-      const stretchBars: Array<{ platform: PlatformView; body: Phaser.GameObjects.Rectangle; cap: Phaser.GameObjects.Rectangle }> = [];
+      const animatedPlatforms: Array<{ platform: PlatformView; body: Phaser.GameObjects.Rectangle; cap?: Phaser.GameObjects.Rectangle }> = [];
       const keys = { left: false, right: false, jump: false };
       const touchInput = { pointerId: -1, startX: 0 };
       let activeScene: Phaser.Scene | null = null;
@@ -59,7 +73,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           const me = roomRef.current.players.find((player) => player.id === socket.id);
           if (me && this.cameraTarget) this.cameraTarget.setPosition(me.x, me.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
-          updateStretchBars(stretchBars, Date.now() + serverClockOffsetRef.current);
+          updateAnimatedPlatforms(animatedPlatforms, Date.now() + serverClockOffsetRef.current);
           sendInput(performance.now());
         }
 
@@ -81,26 +95,17 @@ export default function SkyRushGame({ socket, room }: Props) {
           this.add.rectangle(1100, 160, 440, 42, 0xf5d76e);
           this.add.text(992, 134, "GOAL", { fontFamily: "Arial", fontSize: "28px", color: "#17202a", fontStyle: "bold" });
           activePlatforms(roomRef.current.mode, roomRef.current.preset).forEach((platform, index) => {
-            const isJumpPad = platform.kind === "jumpPad" || platform.kind === "teamJumpPad";
-            const isTeamPad = platform.kind === "teamJumpPad";
             const isStretch = platform.kind === "stretch";
-            const color = isStretch ? 0xf783ac : isTeamPad ? 0x74c0fc : isJumpPad ? 0x8ce99a : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
-            const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, isStretch ? 0xffdeeb : isTeamPad ? 0xd0ebff : isJumpPad ? 0xeaff8f : 0xffffff, 0.7);
+            const isVanish = platform.kind === "vanish";
+            const color = isStretch ? 0xf783ac : isVanish ? 0xb197fc : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
+            const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, isStretch ? 0xffdeeb : isVanish ? 0xe5dbff : 0xffffff, 0.7);
             if (isStretch) {
               const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, Math.max(20, platform.w - 34), 6, 0xffdeeb, 0.75);
-              stretchBars.push({ platform, body, cap });
+              animatedPlatforms.push({ platform, body, cap });
             }
-            if (isJumpPad) {
-              this.add.triangle(platform.x + platform.w / 2, platform.y - 12, 0, 16, 18, 16, 9, 0, isTeamPad ? 0xd0ebff : 0xeaff8f, 0.9);
-            }
-            if (isTeamPad) {
-              this.add.text(platform.x + platform.w / 2 - 58, platform.y - 42, "TEAM BOOST", {
-                fontFamily: "Arial",
-                fontSize: "18px",
-                color: "#d0ebff",
-                stroke: "#102538",
-                strokeThickness: 4
-              });
+            if (isVanish) {
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, 0xe5dbff, 0.82);
+              animatedPlatforms.push({ platform, body, cap });
             }
           });
           if (roomRef.current.mode === "team") {
@@ -351,19 +356,19 @@ function PhaserMathDegToRad(degrees: number) {
 }
 
 function spawnEffect(scene: import("phaser").Scene, Phaser: typeof import("phaser"), effect: EffectBurst) {
-  const color = effect.kind === "jumpPad" ? 0xeaff8f : 0xffffff;
-  const count = effect.kind === "jumpPad" ? 12 : 7;
+  const color = effect.kind === "jump" ? 0xeaff8f : 0xffffff;
+  const count = effect.kind === "jump" ? 12 : 7;
   for (let i = 0; i < count; i += 1) {
-    const particle = scene.add.circle(effect.x, effect.y, effect.kind === "jumpPad" ? 5 : 3, color, 0.88);
-    const angle = effect.kind === "jumpPad" ? -Math.PI / 2 + (Math.random() - 0.5) * 1.4 : Math.random() * Math.PI * 2;
-    const distance = effect.kind === "jumpPad" ? 70 + Math.random() * 45 : 28 + Math.random() * 28;
+    const particle = scene.add.circle(effect.x, effect.y, effect.kind === "jump" ? 5 : 3, color, 0.88);
+    const angle = effect.kind === "jump" ? -Math.PI / 2 + (Math.random() - 0.5) * 1.4 : Math.random() * Math.PI * 2;
+    const distance = effect.kind === "jump" ? 70 + Math.random() * 45 : 28 + Math.random() * 28;
     scene.tweens.add({
       targets: particle,
       x: effect.x + Math.cos(angle) * distance,
       y: effect.y + Math.sin(angle) * distance,
       alpha: 0,
       scale: 0.2,
-      duration: effect.kind === "jumpPad" ? 420 : 260,
+      duration: effect.kind === "jump" ? 420 : 260,
       ease: Phaser.Math.Easing.Quadratic.Out,
       onComplete: () => particle.destroy()
     });
@@ -386,43 +391,43 @@ function activePlatforms(mode: RoomState["mode"], preset: StagePreset): Platform
   const base: PlatformView[] = [
     { x: 520, y: 4060, w: 1160, h: 28 },
     { x: 260, y: 3780, w: 420, h: 24 },
-    { x: 980, y: 3780, w: 420, h: 24, kind: "jumpPad" },
+    { x: 980, y: 3780, w: 420, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
     { x: 1530, y: 3780, w: 360, h: 24 },
     { x: 710, y: 3500, w: 380, h: 24 },
     { x: 1320, y: 3500, w: 380, h: 24 },
-    { x: 400, y: 3220, w: 350, h: 24, kind: "jumpPad" },
+    { x: 400, y: 3220, w: 350, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
     { x: 1040, y: 3220, w: 360, h: 24 },
     { x: 1490, y: 2940, w: 330, h: 24 },
     { x: 700, y: 2940, w: 330, h: 24 },
     { x: 450, y: 2660, w: 320, h: 24 },
-    { x: 1060, y: 2660, w: 330, h: 24, kind: "jumpPad" },
+    { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
     { x: 1380, y: 2380, w: 300, h: 24 },
     { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
-    { x: 520, y: 2100, w: 290, h: 24, kind: "jumpPad" },
+    { x: 520, y: 2100, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
     { x: 1130, y: 2100, w: 300, h: 24 },
     { x: 860, y: 1820, w: 290, h: 24 },
     { x: 1220, y: 1540, w: 270, h: 24 },
     { x: 750, y: 1540, w: 270, h: 24 },
-    { x: 1000, y: 1260, w: 260, h: 24, kind: "jumpPad" },
+    { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
     { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
     { x: 1160, y: 980, w: 240, h: 24 },
-    { x: 940, y: 700, w: 240, h: 24, kind: "jumpPad" },
+    { x: 940, y: 700, w: 240, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
     { x: 980, y: 420, w: 260, h: 24 }
   ];
   const presets: Record<StagePreset, { base: PlatformView[]; team: PlatformView[] }> = {
     balanced: {
       base,
       team: [
-        { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
+        { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
         { x: 990, y: 1120, w: 300, h: 28 },
         { x: 1015, y: 840, w: 250, h: 24 }
       ]
     },
     boost: {
-      base: base.map((platform) => [3500, 2940, 2380, 1540].includes(platform.y) ? { ...platform, kind: "jumpPad" } : platform),
+      base: base.map((platform) => [3500, 2940, 2380, 1540].includes(platform.y) ? { ...platform, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x } : platform),
       team: [
-        { x: 850, y: 1720, w: 500, h: 28, kind: "teamJumpPad" },
-        { x: 1030, y: 1160, w: 280, h: 24, kind: "jumpPad" },
+        { x: 850, y: 1720, w: 500, h: 28, kind: "vanish", visibleMs: 3000, hiddenMs: 1400, phaseMs: 600 },
+        { x: 1030, y: 1160, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 1200 },
         { x: 1015, y: 840, w: 250, h: 24 }
       ]
     },
@@ -434,7 +439,7 @@ function activePlatforms(mode: RoomState["mode"], preset: StagePreset): Platform
         return platform;
       }),
       team: [
-        { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
+        { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
         { x: 990, y: 1120, w: 300, h: 28 },
         { x: 1015, y: 840, w: 250, h: 24 }
       ]
@@ -442,8 +447,8 @@ function activePlatforms(mode: RoomState["mode"], preset: StagePreset): Platform
     teamwork: {
       base: base.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
       team: [
-        { x: 820, y: 1760, w: 520, h: 28, kind: "teamJumpPad" },
-        { x: 980, y: 1220, w: 310, h: 28, kind: "teamJumpPad" },
+        { x: 820, y: 1760, w: 520, h: 28, kind: "vanish", visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
+        { x: 980, y: 1220, w: 310, h: 28, kind: "vanish", visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
         { x: 1020, y: 860, w: 240, h: 24 },
         { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
       ]
@@ -459,6 +464,23 @@ function activePlatforms(mode: RoomState["mode"], preset: StagePreset): Platform
 }
 
 function currentPlatform(platform: PlatformView, now: number): PlatformView {
+  if (platform.kind === "vanish") {
+    const visibleMs = platform.visibleMs ?? 2600;
+    const hiddenMs = platform.hiddenMs ?? 1200;
+    const periodMs = visibleMs + hiddenMs;
+    const phaseMs = platform.phaseMs ?? 0;
+    const elapsed = (now + phaseMs) % periodMs;
+    const fadeWindow = Math.min(450, visibleMs / 3);
+    const fadeIn = Math.min(1, elapsed / fadeWindow);
+    const fadeOut = Math.min(1, (visibleMs - elapsed) / fadeWindow);
+    const active = elapsed < visibleMs;
+    const visibility = active ? Math.max(0.18, Math.min(fadeIn, fadeOut)) : 0.12;
+    return {
+      ...platform,
+      active,
+      visibility
+    };
+  }
   if (platform.kind !== "stretch") return platform;
   const minW = platform.minW ?? platform.w;
   const maxW = platform.maxW ?? platform.w;
@@ -474,16 +496,27 @@ function currentPlatform(platform: PlatformView, now: number): PlatformView {
   };
 }
 
-function updateStretchBars(stretchBars: Array<{ platform: PlatformView; body: import("phaser").GameObjects.Rectangle; cap: import("phaser").GameObjects.Rectangle }>, now: number) {
-  for (const bar of stretchBars) {
+function updateAnimatedPlatforms(animatedPlatforms: Array<{ platform: PlatformView; body: import("phaser").GameObjects.Rectangle; cap?: import("phaser").GameObjects.Rectangle }>, now: number) {
+  for (const bar of animatedPlatforms) {
     const current = currentPlatform(bar.platform, now);
     const centerX = current.x + current.w / 2;
     const centerY = current.y + current.h / 2;
     bar.body.setPosition(centerX, centerY);
     bar.body.setSize(current.w, current.h);
     bar.body.scaleX = 1;
-    bar.cap.setPosition(centerX, centerY);
-    bar.cap.setSize(Math.max(20, current.w - 34), 6);
-    bar.cap.scaleX = 1;
+    if (current.kind === "vanish") {
+      const alpha = current.visibility ?? 1;
+      bar.body.setAlpha(alpha);
+      bar.cap?.setAlpha(Math.min(0.9, alpha + 0.14));
+      bar.cap?.setPosition(centerX, current.y + 5);
+      bar.cap?.setSize(Math.max(28, current.w - 28), 5);
+      if (bar.cap) bar.cap.scaleX = 1;
+    } else {
+      bar.body.setAlpha(1);
+      bar.cap?.setAlpha(0.75);
+      bar.cap?.setPosition(centerX, centerY);
+      bar.cap?.setSize(Math.max(20, current.w - 34), 6);
+      if (bar.cap) bar.cap.scaleX = 1;
+    }
   }
 }

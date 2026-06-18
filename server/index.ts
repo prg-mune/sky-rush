@@ -39,7 +39,20 @@ type RoomRuntime = Omit<RoomState, "players"> & {
 
 type SkyRushServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type SkyRushSocket = IOSocket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type Platform = { x: number; y: number; w: number; h: number; kind?: "jumpPad" | "teamJumpPad" | "stretch"; minW?: number; maxW?: number; periodMs?: number; phaseMs?: number };
+type Platform = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  kind?: "stretch" | "vanish";
+  minW?: number;
+  maxW?: number;
+  periodMs?: number;
+  phaseMs?: number;
+  visibleMs?: number;
+  hiddenMs?: number;
+  active?: boolean;
+};
 type PlatformSet = { platforms: Platform[]; teamChallengePlatforms: Platform[] };
 
 const PASSWORD = "progress4649";
@@ -66,32 +79,32 @@ const stage = {
 const balancedPlatforms: Platform[] = [
   { x: 520, y: 4060, w: 1160, h: 28 },
   { x: 260, y: 3780, w: 420, h: 24 },
-  { x: 980, y: 3780, w: 420, h: 24, kind: "jumpPad" },
+  { x: 980, y: 3780, w: 420, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
   { x: 1530, y: 3780, w: 360, h: 24 },
   { x: 710, y: 3500, w: 380, h: 24 },
   { x: 1320, y: 3500, w: 380, h: 24 },
-  { x: 400, y: 3220, w: 350, h: 24, kind: "jumpPad" },
+  { x: 400, y: 3220, w: 350, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
   { x: 1040, y: 3220, w: 360, h: 24 },
   { x: 1490, y: 2940, w: 330, h: 24 },
   { x: 700, y: 2940, w: 330, h: 24 },
   { x: 450, y: 2660, w: 320, h: 24 },
-  { x: 1060, y: 2660, w: 330, h: 24, kind: "jumpPad" },
+  { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
   { x: 1380, y: 2380, w: 300, h: 24 },
   { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
-  { x: 520, y: 2100, w: 290, h: 24, kind: "jumpPad" },
+  { x: 520, y: 2100, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
   { x: 1130, y: 2100, w: 300, h: 24 },
   { x: 860, y: 1820, w: 290, h: 24 },
   { x: 1220, y: 1540, w: 270, h: 24 },
   { x: 750, y: 1540, w: 270, h: 24 },
-  { x: 1000, y: 1260, w: 260, h: 24, kind: "jumpPad" },
+  { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
   { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
   { x: 1160, y: 980, w: 240, h: 24 },
-  { x: 940, y: 700, w: 240, h: 24, kind: "jumpPad" },
+  { x: 940, y: 700, w: 240, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
   { x: 980, y: 420, w: 260, h: 24 }
 ];
 
 const balancedTeamChallengePlatforms: Platform[] = [
-  { x: 875, y: 1720, w: 450, h: 28, kind: "teamJumpPad" },
+  { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
   { x: 990, y: 1120, w: 300, h: 28 },
   { x: 1015, y: 840, w: 250, h: 24 }
 ];
@@ -103,12 +116,12 @@ const stagePresets: Record<StagePreset, PlatformSet> = {
   },
   boost: {
     platforms: balancedPlatforms.map((platform) => {
-      if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "jumpPad" };
+      if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x };
       return platform;
     }),
     teamChallengePlatforms: [
-      { x: 850, y: 1720, w: 500, h: 28, kind: "teamJumpPad" },
-      { x: 1030, y: 1160, w: 280, h: 24, kind: "jumpPad" },
+      { x: 850, y: 1720, w: 500, h: 28, kind: "vanish", visibleMs: 3000, hiddenMs: 1400, phaseMs: 600 },
+      { x: 1030, y: 1160, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 1200 },
       { x: 1015, y: 840, w: 250, h: 24 }
     ]
   },
@@ -124,8 +137,8 @@ const stagePresets: Record<StagePreset, PlatformSet> = {
   teamwork: {
     platforms: balancedPlatforms.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
     teamChallengePlatforms: [
-      { x: 820, y: 1760, w: 520, h: 28, kind: "teamJumpPad" },
-      { x: 980, y: 1220, w: 310, h: 28, kind: "teamJumpPad" },
+      { x: 820, y: 1760, w: 520, h: 28, kind: "vanish", visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
+      { x: 980, y: 1220, w: 310, h: 28, kind: "vanish", visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
       { x: 1020, y: 860, w: 240, h: 24 },
       { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
     ]
@@ -237,7 +250,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         player.jumping = true;
         if (player.wallTouch === "left") player.vx = stage.moveSpeed * 1.25;
         if (player.wallTouch === "right") player.vx = -stage.moveSpeed * 1.25;
-        if (standingOn) emitEffect(io, room, { kind: "jumpPad", x: player.x + stage.playerW / 2, y: player.y + stage.playerH });
+        if (standingOn) emitEffect(io, room, { kind: "jump", x: player.x + stage.playerW / 2, y: player.y + stage.playerH });
       } else if (requestedJump) {
         player.lastJumpRequestId = input.jumpRequestId;
       }
@@ -271,21 +284,9 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         const hitUnderside = player.vy < 0 && withinX && previousY >= platformBottom && player.y <= platformBottom;
         if (landedOnTop) {
           player.y = platform.y - stage.playerH;
-          if (platform.kind === "jumpPad" || platform.kind === "teamJumpPad") {
-            const teamPowered = platform.kind === "teamJumpPad" && hasNearbyTeammate(room, player, platform);
-            if (platform.kind === "teamJumpPad" && !teamPowered) {
-              player.vy = -stage.jumpMax * 0.84;
-            } else {
-              player.vy = -stage.jumpMax * (teamPowered ? 1.48 : 1.22);
-            }
-            player.onGround = false;
-            player.jumping = true;
-            emitEffect(io, room, { kind: "jumpPad", x: player.x + stage.playerW / 2, y: platform.y });
-          } else {
-            player.vy = 0;
-            player.onGround = true;
-            player.jumping = false;
-          }
+          player.vy = 0;
+          player.onGround = true;
+          player.jumping = false;
         } else if (hitUnderside) {
           player.y = platformBottom;
           player.vy = 140;
@@ -506,15 +507,27 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
 function activePlatforms(room: Pick<RoomRuntime, "mode" | "preset">) {
   const set = stagePresets[room.preset] ?? stagePresets.balanced;
   const now = Date.now();
-  const current = set.platforms.map((platform) => currentPlatform(platform, now));
+  const current = set.platforms.map((platform) => currentPlatform(platform, now)).filter((platform) => platform.active !== false);
   if (room.mode !== "team") return current;
   return [
     ...current.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
     ...set.teamChallengePlatforms.map((platform) => currentPlatform(platform, now))
+      .filter((platform) => platform.active !== false)
   ].sort((a, b) => b.y - a.y);
 }
 
 function currentPlatform(platform: Platform, now: number): Platform {
+  if (platform.kind === "vanish") {
+    const visibleMs = platform.visibleMs ?? 2600;
+    const hiddenMs = platform.hiddenMs ?? 1200;
+    const periodMs = visibleMs + hiddenMs;
+    const phaseMs = platform.phaseMs ?? 0;
+    const elapsed = (now + phaseMs) % periodMs;
+    return {
+      ...platform,
+      active: elapsed < visibleMs
+    };
+  }
   if (platform.kind !== "stretch") return platform;
   const minW = platform.minW ?? platform.w;
   const maxW = platform.maxW ?? platform.w;
@@ -528,16 +541,6 @@ function currentPlatform(platform: Platform, now: number): Platform {
     x: platform.x + platform.w / 2 - w / 2,
     w
   };
-}
-
-function hasNearbyTeammate(room: RoomRuntime, player: PlayerRuntime, platform: Platform) {
-  if (room.mode !== "team" || !player.team) return false;
-  return [...room.players.values()].some((other) => {
-    if (other.id === player.id || other.team !== player.team || !other.connected) return false;
-    const onPadWidth = other.x + stage.playerW > platform.x - 60 && other.x < platform.x + platform.w + 60;
-    const nearPadHeight = Math.abs(other.y + stage.playerH - platform.y) < 120;
-    return onPadWidth && nearPadHeight;
-  });
 }
 
 function spawnXFor(index: number) {

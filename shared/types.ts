@@ -48,7 +48,7 @@ export type RoomState = {
 };
 
 export type EffectBurst = {
-  kind: "push" | "jumpPad";
+  kind: "push" | "jump";
   x: number;
   y: number;
 };
