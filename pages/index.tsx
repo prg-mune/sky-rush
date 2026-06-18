@@ -150,7 +150,7 @@ export default function Home() {
               ステージ
               <select value={preset} onChange={(event) => setPreset(event.target.value as StagePreset)}>
                 <option value="balanced">バランス型</option>
-                <option value="boost">ジャンプ台多め</option>
+                <option value="boost">消える床多め</option>
                 <option value="stretch">伸縮バー多め</option>
                 <option value="teamwork">チーム協力多め</option>
               </select>
@@ -272,7 +272,7 @@ function rankOf(room: RoomState, socketId: string) {
 function presetLabel(preset: StagePreset) {
   return {
     balanced: "バランス型",
-    boost: "ジャンプ台多め",
+    boost: "消える床多め",
     stretch: "伸縮バー多め",
     teamwork: "チーム協力多め"
   }[preset];
