@@ -127,6 +127,12 @@ input[type="range"] {
   accent-color: #f2b84b;
 }
 
+.fieldHint {
+  color: #9eb4c4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .roomList,
 .players {
   display: grid;

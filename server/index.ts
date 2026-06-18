@@ -11,7 +11,7 @@ import type {
   RoomState,
   RoomSummary,
   ServerToClientEvents,
-  StagePreset
+  StageId
 } from "../shared/types";
 
 type SocketData = {
@@ -54,6 +54,7 @@ type Platform = {
   active?: boolean;
 };
 type PlatformSet = { platforms: Platform[]; teamChallengePlatforms: Platform[] };
+type StageDefinition = PlatformSet & { mode: GameMode };
 
 const PASSWORD = "progress4649";
 const PORT = Number(process.env.PORT || 3000);
@@ -79,68 +80,142 @@ const stage = {
 const balancedPlatforms: Platform[] = [
   { x: 520, y: 4060, w: 1160, h: 28 },
   { x: 260, y: 3780, w: 420, h: 24 },
-  { x: 980, y: 3780, w: 420, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
+  { x: 980, y: 3780, w: 420, h: 24, kind: "vanish" as const, visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
   { x: 1530, y: 3780, w: 360, h: 24 },
   { x: 710, y: 3500, w: 380, h: 24 },
   { x: 1320, y: 3500, w: 380, h: 24 },
-  { x: 400, y: 3220, w: 350, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
+  { x: 400, y: 3220, w: 350, h: 24, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
   { x: 1040, y: 3220, w: 360, h: 24 },
   { x: 1490, y: 2940, w: 330, h: 24 },
   { x: 700, y: 2940, w: 330, h: 24 },
   { x: 450, y: 2660, w: 320, h: 24 },
-  { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
+  { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish" as const, visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
   { x: 1380, y: 2380, w: 300, h: 24 },
-  { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
-  { x: 520, y: 2100, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
+  { x: 760, y: 2380, w: 310, h: 24, kind: "stretch" as const, minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
+  { x: 520, y: 2100, w: 290, h: 24, kind: "vanish" as const, visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
   { x: 1130, y: 2100, w: 300, h: 24 },
   { x: 860, y: 1820, w: 290, h: 24 },
   { x: 1220, y: 1540, w: 270, h: 24 },
   { x: 750, y: 1540, w: 270, h: 24 },
-  { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
-  { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
+  { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish" as const, visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
+  { x: 780, y: 980, w: 240, h: 24, kind: "stretch" as const, minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
   { x: 1160, y: 980, w: 240, h: 24 },
-  { x: 940, y: 700, w: 240, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
+  { x: 940, y: 700, w: 240, h: 24, kind: "vanish" as const, visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
   { x: 980, y: 420, w: 260, h: 24 }
 ];
 
 const balancedTeamChallengePlatforms: Platform[] = [
-  { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
+  { x: 875, y: 1720, w: 450, h: 28, kind: "vanish" as const, visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
   { x: 990, y: 1120, w: 300, h: 28 },
   { x: 1015, y: 840, w: 250, h: 24 }
 ];
 
-const stagePresets: Record<StagePreset, PlatformSet> = {
-  balanced: {
+const stageDefinitions: Record<StageId, StageDefinition> = {
+  battle_01_garden: {
+    mode: "battle",
     platforms: balancedPlatforms,
     teamChallengePlatforms: balancedTeamChallengePlatforms
   },
-  boost: {
+  battle_02_breeze: {
+    mode: "battle",
     platforms: balancedPlatforms.map((platform) => {
-      if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x };
+      if ([3500, 2940].includes(platform.y)) return { ...platform, w: platform.w * 0.9 };
+      if ([3220, 2100].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2900, hiddenMs: 900, phaseMs: platform.x };
       return platform;
     }),
-    teamChallengePlatforms: [
-      { x: 850, y: 1720, w: 500, h: 28, kind: "vanish", visibleMs: 3000, hiddenMs: 1400, phaseMs: 600 },
-      { x: 1030, y: 1160, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 1200 },
-      { x: 1015, y: 840, w: 250, h: 24 }
-    ]
+    teamChallengePlatforms: []
   },
-  stretch: {
+  battle_03_cloud_jumble: {
+    mode: "battle",
+    platforms: [
+      ...balancedPlatforms.map((platform) => {
+        if ([3780, 3500, 3220, 2940, 2660].includes(platform.y)) return { ...platform, x: platform.x + (platform.x < stage.width / 2 ? -90 : 90), w: platform.w * 0.88 };
+        if ([2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2700, hiddenMs: 1100, phaseMs: platform.x };
+        return platform;
+      }),
+      { x: 1010, y: 3360, w: 240, h: 24 },
+      { x: 870, y: 2240, w: 230, h: 24 }
+    ],
+    teamChallengePlatforms: []
+  },
+  battle_04_sunset_bridge: {
+    mode: "battle",
+    platforms: balancedPlatforms.map((platform) => {
+      if ([3780, 2940, 2100].includes(platform.y)) return { ...platform, w: platform.w * 1.18 };
+      if ([3220, 2660, 1260].includes(platform.y)) return { ...platform, w: platform.w * 0.72, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1200, phaseMs: platform.x + platform.y };
+      return platform;
+    }),
+    teamChallengePlatforms: []
+  },
+  battle_05_wobble_highland: {
+    mode: "battle",
     platforms: balancedPlatforms.map((platform) => {
       if ([3780, 2940, 2100, 1540, 700].includes(platform.y)) {
-        return { ...platform, kind: "stretch", minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
+        return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
       }
       return platform;
     }),
-    teamChallengePlatforms: balancedTeamChallengePlatforms
+    teamChallengePlatforms: []
   },
-  teamwork: {
+  battle_06_phantom_corridor: {
+    mode: "battle",
+    platforms: balancedPlatforms.map((platform) => {
+      if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x };
+      return platform;
+    }),
+    teamChallengePlatforms: []
+  },
+  battle_07_cup_qualifier: {
+    mode: "battle",
+    platforms: balancedPlatforms.map((platform) => {
+      if ([3780, 2660, 1260].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2300, hiddenMs: 1200, phaseMs: platform.x };
+      if ([2940, 1540, 700].includes(platform.y)) return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.48), maxW: platform.w * 1.18, periodMs: 3100 + platform.y, phaseMs: platform.x };
+      return platform;
+    }),
+    teamChallengePlatforms: []
+  },
+  battle_08_lightning_ridge: {
+    mode: "battle",
+    platforms: balancedPlatforms.map((platform) => {
+      const narrowed = [3780, 3500, 3220, 2940, 2660, 2380, 2100, 1540, 1260, 980, 700].includes(platform.y);
+      const next = narrowed ? { ...platform, w: Math.max(190, platform.w * 0.7) } : platform;
+      if ([3220, 2660, 2100, 1260, 700].includes(platform.y)) return { ...next, kind: "vanish" as const, visibleMs: 2000, hiddenMs: 1350, phaseMs: platform.x + 400 };
+      return next;
+    }),
+    teamChallengePlatforms: []
+  },
+  battle_09_stratos_ladder: {
+    mode: "battle",
+    platforms: [
+      ...balancedPlatforms.map((platform) => {
+        if ([3780, 3220, 2660, 2100, 1540, 980].includes(platform.y)) return { ...platform, w: Math.max(180, platform.w * 0.62), kind: "vanish" as const, visibleMs: 1900, hiddenMs: 1400, phaseMs: platform.y };
+        if ([2940, 2380, 1260, 700].includes(platform.y)) return { ...platform, kind: "stretch" as const, minW: Math.max(100, platform.w * 0.35), maxW: platform.w * 1.12, periodMs: 2600 + platform.y, phaseMs: platform.x };
+        return platform;
+      }),
+      { x: 1090, y: 560, w: 180, h: 24, kind: "vanish" as const, visibleMs: 1800, hiddenMs: 1300, phaseMs: 300 }
+    ],
+    teamChallengePlatforms: []
+  },
+  battle_10_everest_rush: {
+    mode: "battle",
+    platforms: [
+      ...balancedPlatforms.map((platform) => {
+        if (platform.y === 4060 || platform.y === 420) return platform;
+        return { ...platform, w: Math.max(150, platform.w * 0.58), kind: "vanish" as const, visibleMs: 1700, hiddenMs: 1450, phaseMs: platform.x + platform.y };
+      }),
+      { x: 875, y: 560, w: 170, h: 24, kind: "vanish" as const, visibleMs: 1600, hiddenMs: 1500, phaseMs: 700 },
+      { x: 1150, y: 560, w: 170, h: 24, kind: "vanish" as const, visibleMs: 1600, hiddenMs: 1500, phaseMs: 1500 }
+    ],
+    teamChallengePlatforms: []
+  },
+  team_01_skybase: {
+    mode: "team",
     platforms: balancedPlatforms.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
     teamChallengePlatforms: [
-      { x: 820, y: 1760, w: 520, h: 28, kind: "vanish", visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
-      { x: 980, y: 1220, w: 310, h: 28, kind: "vanish", visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
+      { x: 820, y: 1760, w: 520, h: 28, kind: "vanish" as const, visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
+      { x: 980, y: 1220, w: 310, h: 28, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
       { x: 1020, y: 860, w: 240, h: 24 },
-      { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
+      { x: 940, y: 600, w: 280, h: 24, kind: "stretch" as const, minW: 130, maxW: 360, periodMs: 3200 }
     ]
   }
 };
@@ -161,7 +236,7 @@ function roomSummary(room: RoomRuntime): RoomSummary {
     id: room.id,
     name: room.name,
     mode: room.mode,
-    preset: room.preset,
+    stageId: room.stageId,
     playerCount: room.players.size,
     maxPlayers: room.maxPlayers,
     started: room.started
@@ -347,14 +422,15 @@ app.prepare().then(() => {
 
     socket.on("listRooms", () => socket.emit("rooms", [...rooms.values()].map(roomSummary)));
 
-    socket.on("createRoom", ({ name, mode, maxPlayers, preset }) => {
+    socket.on("createRoom", ({ name, mode, maxPlayers, stageId }) => {
       if (!socket.data.playerName) return socket.emit("errorMessage", "ログインしてください");
       const id = `room-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const normalizedStageId = normalizeStageId(mode, stageId);
       const room: RoomRuntime = {
         id,
         name: name.trim().slice(0, 24) || `${socket.data.playerName}の部屋`,
         mode,
-        preset,
+        stageId: normalizedStageId,
         maxPlayers: Math.max(2, Math.min(50, maxPlayers)),
         ownerId: socket.id,
         started: false,
@@ -368,10 +444,10 @@ app.prepare().then(() => {
 
     socket.on("joinRoom", (roomId) => {
       const room = rooms.get(roomId);
+      if (!room) return socket.emit("errorMessage", "驛ｨ螻九′隕九▽縺九ｊ縺ｾ縺帙ｓ");
       if (!room) return socket.emit("errorMessage", "部屋が見つかりません");
       if (room.players.size >= room.maxPlayers) return socket.emit("errorMessage", "部屋が満員です");
       if (room.started) return socket.emit("errorMessage", "開始済みの部屋です");
-      joinRoom(io, socket, room);
       broadcastRooms(io);
     });
 
@@ -504,8 +580,8 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   player.input.seq += 1;
 }
 
-function activePlatforms(room: Pick<RoomRuntime, "mode" | "preset">) {
-  const set = stagePresets[room.preset] ?? stagePresets.balanced;
+function activePlatforms(room: Pick<RoomRuntime, "mode" | "stageId">) {
+  const set = stageDefinitions[normalizeStageId(room.mode, room.stageId)];
   const now = Date.now();
   const current = set.platforms.map((platform) => currentPlatform(platform, now)).filter((platform) => platform.active !== false);
   if (room.mode !== "team") return current;
@@ -514,6 +590,12 @@ function activePlatforms(room: Pick<RoomRuntime, "mode" | "preset">) {
     ...set.teamChallengePlatforms.map((platform) => currentPlatform(platform, now))
       .filter((platform) => platform.active !== false)
   ].sort((a, b) => b.y - a.y);
+}
+
+function normalizeStageId(mode: GameMode, stageId: StageId): StageId {
+  const definition = stageDefinitions[stageId];
+  if (definition?.mode === mode) return stageId;
+  return mode === "team" ? "team_01_skybase" : "battle_01_garden";
 }
 
 function currentPlatform(platform: Platform, now: number): Platform {

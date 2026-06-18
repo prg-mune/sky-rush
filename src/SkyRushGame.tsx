@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
-import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents, StagePreset } from "../shared/types";
+import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents, StageId } from "../shared/types";
 
 type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -94,7 +94,7 @@ export default function SkyRushGame({ socket, room }: Props) {
           }
           this.add.rectangle(1100, 160, 440, 42, 0xf5d76e);
           this.add.text(992, 134, "GOAL", { fontFamily: "Arial", fontSize: "28px", color: "#17202a", fontStyle: "bold" });
-          activePlatforms(roomRef.current.mode, roomRef.current.preset).forEach((platform, index) => {
+          activePlatforms(roomRef.current.mode, roomRef.current.stageId).forEach((platform, index) => {
             const isStretch = platform.kind === "stretch";
             const isVanish = platform.kind === "vanish";
             const color = isStretch ? 0xf783ac : isVanish ? 0xb197fc : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
@@ -387,74 +387,144 @@ function courseBoundsAt(y: number) {
   };
 }
 
-function activePlatforms(mode: RoomState["mode"], preset: StagePreset): PlatformView[] {
+function activePlatforms(mode: RoomState["mode"], stageId: StageId): PlatformView[] {
   const base: PlatformView[] = [
     { x: 520, y: 4060, w: 1160, h: 28 },
     { x: 260, y: 3780, w: 420, h: 24 },
-    { x: 980, y: 3780, w: 420, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
+    { x: 980, y: 3780, w: 420, h: 24, kind: "vanish" as const, visibleMs: 2800, hiddenMs: 1200, phaseMs: 0 },
     { x: 1530, y: 3780, w: 360, h: 24 },
     { x: 710, y: 3500, w: 380, h: 24 },
     { x: 1320, y: 3500, w: 380, h: 24 },
-    { x: 400, y: 3220, w: 350, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
+    { x: 400, y: 3220, w: 350, h: 24, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1100, phaseMs: 700 },
     { x: 1040, y: 3220, w: 360, h: 24 },
     { x: 1490, y: 2940, w: 330, h: 24 },
     { x: 700, y: 2940, w: 330, h: 24 },
     { x: 450, y: 2660, w: 320, h: 24 },
-    { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
+    { x: 1060, y: 2660, w: 330, h: 24, kind: "vanish" as const, visibleMs: 2400, hiddenMs: 1200, phaseMs: 1400 },
     { x: 1380, y: 2380, w: 300, h: 24 },
-    { x: 760, y: 2380, w: 310, h: 24, kind: "stretch", minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
-    { x: 520, y: 2100, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
+    { x: 760, y: 2380, w: 310, h: 24, kind: "stretch" as const, minW: 150, maxW: 420, periodMs: 3600, phaseMs: 400 },
+    { x: 520, y: 2100, w: 290, h: 24, kind: "vanish" as const, visibleMs: 2500, hiddenMs: 1300, phaseMs: 300 },
     { x: 1130, y: 2100, w: 300, h: 24 },
     { x: 860, y: 1820, w: 290, h: 24 },
     { x: 1220, y: 1540, w: 270, h: 24 },
     { x: 750, y: 1540, w: 270, h: 24 },
-    { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
-    { x: 780, y: 980, w: 240, h: 24, kind: "stretch", minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
+    { x: 1000, y: 1260, w: 260, h: 24, kind: "vanish" as const, visibleMs: 2300, hiddenMs: 1200, phaseMs: 950 },
+    { x: 780, y: 980, w: 240, h: 24, kind: "stretch" as const, minW: 120, maxW: 340, periodMs: 3000, phaseMs: 1200 },
     { x: 1160, y: 980, w: 240, h: 24 },
-    { x: 940, y: 700, w: 240, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
+    { x: 940, y: 700, w: 240, h: 24, kind: "vanish" as const, visibleMs: 2200, hiddenMs: 1100, phaseMs: 1600 },
     { x: 980, y: 420, w: 260, h: 24 }
   ];
-  const presets: Record<StagePreset, { base: PlatformView[]; team: PlatformView[] }> = {
-    balanced: {
+  const stages: Record<StageId, { mode: RoomState["mode"]; base: PlatformView[]; team: PlatformView[] }> = {
+    battle_01_garden: {
+      mode: "battle",
       base,
       team: [
-        { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
+        { x: 875, y: 1720, w: 450, h: 28, kind: "vanish" as const, visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
         { x: 990, y: 1120, w: 300, h: 28 },
         { x: 1015, y: 840, w: 250, h: 24 }
       ]
     },
-    boost: {
-      base: base.map((platform) => [3500, 2940, 2380, 1540].includes(platform.y) ? { ...platform, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x } : platform),
-      team: [
-        { x: 850, y: 1720, w: 500, h: 28, kind: "vanish", visibleMs: 3000, hiddenMs: 1400, phaseMs: 600 },
-        { x: 1030, y: 1160, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 1200 },
-        { x: 1015, y: 840, w: 250, h: 24 }
-      ]
+    battle_02_breeze: {
+      mode: "battle",
+      base: base.map((platform) => {
+        if ([3500, 2940].includes(platform.y)) return { ...platform, w: platform.w * 0.9 };
+        if ([3220, 2100].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2900, hiddenMs: 900, phaseMs: platform.x };
+        return platform;
+      }),
+      team: []
     },
-    stretch: {
+    battle_03_cloud_jumble: {
+      mode: "battle",
+      base: [
+        ...base.map((platform) => {
+          if ([3780, 3500, 3220, 2940, 2660].includes(platform.y)) return { ...platform, x: platform.x + (platform.x < 1100 ? -90 : 90), w: platform.w * 0.88 };
+          if ([2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2700, hiddenMs: 1100, phaseMs: platform.x };
+          return platform;
+        }),
+        { x: 1010, y: 3360, w: 240, h: 24 },
+        { x: 870, y: 2240, w: 230, h: 24 }
+      ],
+      team: []
+    },
+    battle_04_sunset_bridge: {
+      mode: "battle",
+      base: base.map((platform) => {
+        if ([3780, 2940, 2100].includes(platform.y)) return { ...platform, w: platform.w * 1.18 };
+        if ([3220, 2660, 1260].includes(platform.y)) return { ...platform, w: platform.w * 0.72, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1200, phaseMs: platform.x + platform.y };
+        return platform;
+      }),
+      team: []
+    },
+    battle_05_wobble_highland: {
+      mode: "battle",
       base: base.map((platform) => {
         if ([3780, 2940, 2100, 1540, 700].includes(platform.y)) {
-          return { ...platform, kind: "stretch", minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
+          return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
         }
         return platform;
       }),
-      team: [
-        { x: 875, y: 1720, w: 450, h: 28, kind: "vanish", visibleMs: 3200, hiddenMs: 1200, phaseMs: 500 },
-        { x: 990, y: 1120, w: 300, h: 28 },
-        { x: 1015, y: 840, w: 250, h: 24 }
-      ]
+      team: []
     },
-    teamwork: {
+    battle_06_phantom_corridor: {
+      mode: "battle",
+      base: base.map((platform) => [3500, 2940, 2380, 1540].includes(platform.y) ? { ...platform, kind: "vanish" as const, visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x } : platform),
+      team: []
+    },
+    battle_07_cup_qualifier: {
+      mode: "battle",
+      base: base.map((platform) => {
+        if ([3780, 2660, 1260].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2300, hiddenMs: 1200, phaseMs: platform.x };
+        if ([2940, 1540, 700].includes(platform.y)) return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.48), maxW: platform.w * 1.18, periodMs: 3100 + platform.y, phaseMs: platform.x };
+        return platform;
+      }),
+      team: []
+    },
+    battle_08_lightning_ridge: {
+      mode: "battle",
+      base: base.map((platform) => {
+        const narrowed = [3780, 3500, 3220, 2940, 2660, 2380, 2100, 1540, 1260, 980, 700].includes(platform.y);
+        const next = narrowed ? { ...platform, w: Math.max(190, platform.w * 0.7) } : platform;
+        if ([3220, 2660, 2100, 1260, 700].includes(platform.y)) return { ...next, kind: "vanish" as const, visibleMs: 2000, hiddenMs: 1350, phaseMs: platform.x + 400 };
+        return next;
+      }),
+      team: []
+    },
+    battle_09_stratos_ladder: {
+      mode: "battle",
+      base: [
+        ...base.map((platform) => {
+          if ([3780, 3220, 2660, 2100, 1540, 980].includes(platform.y)) return { ...platform, w: Math.max(180, platform.w * 0.62), kind: "vanish" as const, visibleMs: 1900, hiddenMs: 1400, phaseMs: platform.y };
+          if ([2940, 2380, 1260, 700].includes(platform.y)) return { ...platform, kind: "stretch" as const, minW: Math.max(100, platform.w * 0.35), maxW: platform.w * 1.12, periodMs: 2600 + platform.y, phaseMs: platform.x };
+          return platform;
+        }),
+        { x: 1090, y: 560, w: 180, h: 24, kind: "vanish" as const, visibleMs: 1800, hiddenMs: 1300, phaseMs: 300 }
+      ],
+      team: []
+    },
+    battle_10_everest_rush: {
+      mode: "battle",
+      base: [
+        ...base.map((platform) => {
+          if (platform.y === 4060 || platform.y === 420) return platform;
+          return { ...platform, w: Math.max(150, platform.w * 0.58), kind: "vanish" as const, visibleMs: 1700, hiddenMs: 1450, phaseMs: platform.x + platform.y };
+        }),
+        { x: 875, y: 560, w: 170, h: 24, kind: "vanish" as const, visibleMs: 1600, hiddenMs: 1500, phaseMs: 700 },
+        { x: 1150, y: 560, w: 170, h: 24, kind: "vanish" as const, visibleMs: 1600, hiddenMs: 1500, phaseMs: 1500 }
+      ],
+      team: []
+    },
+    team_01_skybase: {
+      mode: "team",
       base: base.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
       team: [
-        { x: 820, y: 1760, w: 520, h: 28, kind: "vanish", visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
-        { x: 980, y: 1220, w: 310, h: 28, kind: "vanish", visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
+        { x: 820, y: 1760, w: 520, h: 28, kind: "vanish" as const, visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
+        { x: 980, y: 1220, w: 310, h: 28, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1300, phaseMs: 1400 },
         { x: 1020, y: 860, w: 240, h: 24 },
-        { x: 940, y: 600, w: 280, h: 24, kind: "stretch", minW: 130, maxW: 360, periodMs: 3200 }
+        { x: 940, y: 600, w: 280, h: 24, kind: "stretch" as const, minW: 130, maxW: 360, periodMs: 3200 }
       ]
     }
   };
-  const selected = presets[preset] ?? presets.balanced;
+  const selected = stages[stageId]?.mode === mode ? stages[stageId] : stages[mode === "team" ? "team_01_skybase" : "battle_01_garden"];
   if (mode !== "team") return selected.base;
   const teamPlatforms: PlatformView[] = selected.team;
   return [

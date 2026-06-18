@@ -8,13 +8,28 @@ import type {
   RoomState,
   RoomSummary,
   ServerToClientEvents,
-  StagePreset
+  StageId
 } from "../shared/types";
 
 const SkyRushGame = dynamic(() => import("../src/SkyRushGame"), { ssr: false });
 
 type Screen = "login" | "lobby" | "waiting" | "game" | "result";
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+type StageOption = { id: StageId; mode: GameMode; name: string; difficulty: string; description: string };
+
+const stageOptions: StageOption[] = [
+  { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", description: "足場広めの基本コース" },
+  { id: "battle_02_breeze", mode: "battle", name: "そよ風ステップ", difficulty: "初級", description: "少しだけ左右移動が増える" },
+  { id: "battle_03_cloud_jumble", mode: "battle", name: "雲間ジャンブル", difficulty: "初中級", description: "足場が散って押し合いが起きやすい" },
+  { id: "battle_04_sunset_bridge", mode: "battle", name: "夕焼けブリッジ", difficulty: "初中級", description: "長い橋と短い消える床のミックス" },
+  { id: "battle_05_wobble_highland", mode: "battle", name: "ぐらつき高原", difficulty: "中級", description: "伸縮バー多め" },
+  { id: "battle_06_phantom_corridor", mode: "battle", name: "まぼろし回廊", difficulty: "中級", description: "消える床の練習向き" },
+  { id: "battle_07_cup_qualifier", mode: "battle", name: "スカイラッシュ杯 予選", difficulty: "中上級", description: "20人対戦向けの混合コース" },
+  { id: "battle_08_lightning_ridge", mode: "battle", name: "稲妻リッジ", difficulty: "上級", description: "短い足場と消える床が多い" },
+  { id: "battle_09_stratos_ladder", mode: "battle", name: "成層圏ラダー", difficulty: "上級", description: "後半リカバリーが難しい" },
+  { id: "battle_10_everest_rush", mode: "battle", name: "エベレスト・ラッシュ", difficulty: "超上級", description: "ほとんど消える床の最難関" },
+  { id: "team_01_skybase", mode: "team", name: "チーム・スカイベース", difficulty: "初級", description: "味方踏み台と高壁の協力コース" }
+];
 
 export default function Home() {
   const [socket, setSocket] = useState<TypedSocket | null>(null);
@@ -27,7 +42,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [roomName, setRoomName] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
-  const [preset, setPreset] = useState<StagePreset>("balanced");
+  const [stageId, setStageId] = useState<StageId>("battle_01_garden");
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [now, setNow] = useState(Date.now());
 
@@ -62,9 +77,16 @@ export default function Home() {
 
   const me = useMemo(() => room?.players.find((player) => player.id === socket?.id), [room, socket?.id]);
   const isOwner = Boolean(room && socket?.id === room.ownerId);
+  const selectableStages = useMemo(() => stageOptions.filter((stage) => stage.mode === mode), [mode]);
   const countdownMs = Math.max(0, (room?.startedAt || 0) - now);
   const countdownLabel = countdownMs > 0 ? Math.ceil(countdownMs / 1000).toString() : "";
   const isLastSpurt = Boolean(me && me.altitude > 3200 && !room?.finishedAt);
+
+  useEffect(() => {
+    if (!selectableStages.some((stage) => stage.id === stageId)) {
+      setStageId(selectableStages[0]?.id ?? "battle_01_garden");
+    }
+  }, [selectableStages, stageId]);
 
   function login() {
     setMessage("");
@@ -79,7 +101,7 @@ export default function Home() {
   }
 
   function createRoom() {
-    socket?.emit("createRoom", { name: roomName, mode, maxPlayers, preset });
+    socket?.emit("createRoom", { name: roomName, mode, maxPlayers, stageId });
   }
 
   function leaveToLobby() {
@@ -148,12 +170,12 @@ export default function Home() {
             </label>
             <label>
               ステージ
-              <select value={preset} onChange={(event) => setPreset(event.target.value as StagePreset)}>
-                <option value="balanced">バランス型</option>
-                <option value="boost">消える床多め</option>
-                <option value="stretch">伸縮バー多め</option>
-                <option value="teamwork">チーム協力多め</option>
+              <select value={stageId} onChange={(event) => setStageId(event.target.value as StageId)}>
+                {selectableStages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.name} / {stage.difficulty}</option>
+                ))}
               </select>
+              <span className="fieldHint">{stageDescription(stageId)}</span>
             </label>
             <label>
               最大人数 {maxPlayers}
@@ -169,7 +191,7 @@ export default function Home() {
                 <article className="roomItem" key={entry.id}>
                   <div>
                     <strong>{entry.name}</strong>
-                    <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {presetLabel(entry.preset)} / {entry.playerCount} / {entry.maxPlayers}</span>
+                    <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {stageLabel(entry.stageId)} / {entry.playerCount} / {entry.maxPlayers}</span>
                   </div>
                   <button disabled={entry.started} onClick={() => socket?.emit("joinRoom", entry.id)}>
                     {entry.started ? "開始済み" : "参加"}
@@ -187,7 +209,7 @@ export default function Home() {
             <div>
               <p className="eyebrow">{room.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"}</p>
               <h2>{room.name}</h2>
-              <p className="muted">{presetLabel(room.preset)}</p>
+              <p className="muted">{stageLabel(room.stageId)}</p>
             </div>
             <p>{room.players.length} / {room.maxPlayers} 開始時CPU補充</p>
           </div>
@@ -269,13 +291,14 @@ function rankOf(room: RoomState, socketId: string) {
   return sorted.findIndex((player) => player.id === socketId) + 1;
 }
 
-function presetLabel(preset: StagePreset) {
-  return {
-    balanced: "バランス型",
-    boost: "消える床多め",
-    stretch: "伸縮バー多め",
-    teamwork: "チーム協力多め"
-  }[preset];
+function stageLabel(stageId: StageId) {
+  return stageOptions.find((stage) => stage.id === stageId)?.name ?? "はじまりの空庭";
+}
+
+function stageDescription(stageId: StageId) {
+  const stage = stageOptions.find((entry) => entry.id === stageId);
+  if (!stage) return "";
+  return `${stage.difficulty} / ${stage.description}`;
 }
 
 function teamCssColor(team: number) {
