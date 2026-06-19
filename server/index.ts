@@ -62,6 +62,7 @@ const CPU_TARGET_PLAYERS = 20;
 const COUNTDOWN_MS = 4000;
 const DISCONNECTED_PLAYER_TTL_MS = 2 * 60 * 1000;
 const EMPTY_ROOM_TTL_MS = 30 * 1000;
+const PLAYER_COLORS = ["#ff6b6b", "#4dabf7", "#51cf66", "#ffd43b", "#da77f2", "#20c997", "#ff922b", "#f06595"];
 const STAGE_TIMEOUT_MS: Record<StageId, number> = {
   battle_01_garden: 3 * 60 * 1000,
   battle_02_breeze: 3 * 60 * 1000,
@@ -130,6 +131,7 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     connected: true,
     isCpu,
     team: mode === "team" ? preferredTeam ?? (index % 4) + 1 : undefined,
+    color: isCpu ? "#9aa6b2" : PLAYER_COLORS[index % PLAYER_COLORS.length],
     input: { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 },
     lastJumpRequestId: 0,
     onGround: false,
@@ -364,6 +366,16 @@ app.prepare().then(() => {
       io.to(room.id).emit("roomState", roomSnapshot(room));
     });
 
+    socket.on("setColor", (color) => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      const player = room?.players.get(socket.id);
+      if (!room || !player || room.started || player.isCpu) return;
+      const nextColor = sanitizePlayerColor(color);
+      if (!nextColor) return;
+      player.color = nextColor;
+      io.to(room.id).emit("roomState", roomSnapshot(room));
+    });
+
     socket.on("startGame", () => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
       if (!room || room.ownerId !== socket.id) return;
@@ -514,6 +526,11 @@ function nextHumanTeam(room: RoomRuntime) {
     count: [...room.players.values()].filter((player) => !player.isCpu && player.team === team).length
   }));
   return counts.sort((a, b) => a.count - b.count || a.team - b.team)[0].team;
+}
+
+function sanitizePlayerColor(color: string) {
+  const normalized = color.trim().toLowerCase();
+  return PLAYER_COLORS.includes(normalized) ? normalized : "";
 }
 
 function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {

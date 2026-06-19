@@ -501,6 +501,29 @@ input[type="range"] {
   border-color: transparent;
 }
 
+.colorPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.colorPicker button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.36);
+  border-radius: 50%;
+  background: var(--swatch-color);
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.18), 0 5px 14px rgba(0, 0, 0, 0.18);
+}
+
+.colorPicker button.active {
+  border-color: #ffffff;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.28), 0 0 0 3px rgba(255, 212, 122, 0.48);
+}
+
 .actionBar {
   display: flex;
   align-items: center;

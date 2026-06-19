@@ -22,6 +22,7 @@ type Notice = { kind: NoticeKind; text: string };
 type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
 const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "battle_10_everest_rush", "team_01_skybase"]);
+const playerColors = ["#ff6b6b", "#4dabf7", "#51cf66", "#ffd43b", "#da77f2", "#20c997", "#ff922b", "#f06595"];
 
 const stageOptions: StageOption[] = [
   { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", climbHeight: 2000, description: "足場広めの基本コース" },
@@ -364,7 +365,7 @@ export default function Home() {
               <span
                 key={player.id}
                 className={`playerCard${player.id === socket?.id ? " me" : ""}${player.connected ? "" : " disconnected"}`}
-                style={{ "--team-color": player.team ? teamCssColor(player.team) : player.isCpu ? "#9aa6b2" : "#ff6b6b" } as CSSProperties}
+                style={{ "--team-color": displayPlayerColor(player) } as CSSProperties}
               >
                 <span className="playerAvatar" aria-hidden="true">
                   <span className="playerHelmet" />
@@ -437,6 +438,19 @@ export default function Home() {
                 <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(-1)}>前へ</button>
                 <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(1)}>次へ</button>
               </div>
+            </div>
+          )}
+          {me && !me.isCpu && !room.started && (
+            <div className="colorPicker" aria-label="プレイヤーカラー">
+              {playerColors.map((color) => (
+                <button
+                  key={color}
+                  className={me.color === color ? "active" : ""}
+                  onClick={() => socket?.emit("setColor", color)}
+                  style={{ "--swatch-color": color } as CSSProperties}
+                  aria-label={`色 ${color}`}
+                />
+              ))}
             </div>
           )}
           <SkyRushGame socket={socket} room={room} spectatingPlayerId={spectatingPlayerId} />
@@ -534,6 +548,12 @@ function stageDescription(stageId: StageId) {
 
 function stageClimbHeight(stageId: StageId) {
   return stageOptions.find((stage) => stage.id === stageId)?.climbHeight ?? 2000;
+}
+
+function displayPlayerColor(player: PlayerSnapshot) {
+  if (player.isCpu) return "#9aa6b2";
+  if (player.team) return teamCssColor(player.team);
+  return player.color || "#ff6b6b";
 }
 
 function teamCssColor(team: number) {

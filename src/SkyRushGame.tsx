@@ -265,7 +265,7 @@ function syncSprites(
 }
 
 function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["players"][number]) {
-  const bodyColor = player.team ? teamColor(player.team) : player.isCpu ? 0x9aa6b2 : 0xff6b6b;
+  const bodyColor = playerColor(player);
   const bibColor = 0xf8fbff;
   const objects = [
     scene.add.ellipse(0, 0, 40, 12, 0x061522, 0.36).setName("shadow"),
@@ -330,6 +330,17 @@ function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: R
 
 function teamColor(team: number) {
   return [0xff6b6b, 0x4dabf7, 0x51cf66, 0xffd43b][team - 1] || 0xda77f2;
+}
+
+function playerColor(player: RoomState["players"][number]) {
+  if (player.isCpu) return 0x9aa6b2;
+  if (player.team) return teamColor(player.team);
+  return parseHexColor(player.color) ?? 0xff6b6b;
+}
+
+function parseHexColor(color?: string) {
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return undefined;
+  return Number.parseInt(color.slice(1), 16);
 }
 
 function shadeColor(color: number, amount: number) {

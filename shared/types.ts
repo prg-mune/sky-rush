@@ -40,6 +40,7 @@ export type PlayerSnapshot = {
   connected: boolean;
   isCpu?: boolean;
   team?: number;
+  color?: string;
   finishedAt?: number;
 };
 
@@ -103,5 +104,6 @@ export type ClientToServerEvents = {
   leaveRoom: () => void;
   startGame: () => void;
   setTeam: (team: number) => void;
+  setColor: (color: string) => void;
   input: (input: ClientInput) => void;
 };
