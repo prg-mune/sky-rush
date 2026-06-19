@@ -17,6 +17,9 @@ const SkyRushGame = dynamic(() => import("../src/SkyRushGame"), { ssr: false });
 type Screen = "login" | "lobby" | "waiting" | "game" | "result";
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 type StageOption = { id: StageId; mode: GameMode; name: string; difficulty: string; climbHeight: number; description: string };
+type NoticeKind = "info" | "success" | "warning" | "error";
+type Notice = { kind: NoticeKind; text: string };
+type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
 
 const stageOptions: StageOption[] = [
@@ -41,8 +44,9 @@ export default function Home() {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [roomName, setRoomName] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
@@ -52,8 +56,25 @@ export default function Home() {
   useEffect(() => {
     const nextSocket: TypedSocket = io({ transports: ["websocket"] });
     setSocket(nextSocket);
-    nextSocket.on("connect", () => setIsConnected(true));
-    nextSocket.on("disconnect", () => setIsConnected(false));
+    nextSocket.on("connect", () => {
+      setIsConnected(true);
+      setConnectionStatus("online");
+      setNotice((current) => current ? { kind: "success", text: "サーバーへ再接続しました" } : current);
+    });
+    nextSocket.on("disconnect", () => {
+      setIsConnected(false);
+      setConnectionStatus("offline");
+      setNotice({ kind: "warning", text: "通信が切れました。再接続を試しています" });
+    });
+    nextSocket.on("connect_error", () => {
+      setIsConnected(false);
+      setConnectionStatus("offline");
+      setNotice({ kind: "error", text: "サーバーへ接続できません" });
+    });
+    nextSocket.io.on("reconnect_attempt", () => {
+      setConnectionStatus("connecting");
+      setNotice({ kind: "info", text: "サーバーへ再接続しています" });
+    });
     nextSocket.on("rooms", setRooms);
     nextSocket.on("roomState", (nextRoom) => {
       setRoom(nextRoom);
@@ -69,7 +90,7 @@ export default function Home() {
       setResults(endedResults);
       setScreen("result");
     });
-    nextSocket.on("errorMessage", setMessage);
+    nextSocket.on("errorMessage", (text) => setNotice({ kind: "error", text }));
     return () => {
       nextSocket.disconnect();
     };
@@ -79,6 +100,12 @@ export default function Home() {
     const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!notice || notice.kind === "error" || notice.kind === "warning") return;
+    const timer = window.setTimeout(() => setNotice(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     if (!socket || screen === "login" || !playerName || !password) return;
@@ -113,21 +140,36 @@ export default function Home() {
   }, [selectableStages, stageId]);
 
   function login() {
-    setMessage("");
+    setNotice(null);
     const sessionId = window.sessionStorage.getItem(SESSION_STORAGE_KEY) || undefined;
     socket?.emit("login", { playerName, password, sessionId }, (ok, nextMessage, nextSessionId) => {
       if (ok) {
         if (nextSessionId) window.sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
+        setNotice({ kind: "success", text: "ログインしました" });
         setScreen("lobby");
         socket.emit("listRooms");
       } else {
-        setMessage(nextMessage || "ログインできませんでした");
+        setNotice({ kind: "error", text: nextMessage || "ログインできませんでした" });
       }
     });
   }
 
   function createRoom() {
+    if (!isConnected) {
+      setNotice({ kind: "warning", text: "再接続後に部屋を作成できます" });
+      return;
+    }
+    setNotice({ kind: "info", text: "部屋を作成しています" });
     socket?.emit("createRoom", { name: roomName, mode, maxPlayers, stageId });
+  }
+
+  function joinSelectedRoom(roomId: string) {
+    if (!isConnected) {
+      setNotice({ kind: "warning", text: "再接続後に参加できます" });
+      return;
+    }
+    setNotice({ kind: "info", text: "部屋へ参加しています" });
+    socket?.emit("joinRoom", roomId);
   }
 
   function leaveToLobby() {
@@ -136,6 +178,7 @@ export default function Home() {
     setRoom(null);
     setResults([]);
     setScreen("lobby");
+    setNotice({ kind: "info", text: "ロビーへ戻りました" });
   }
 
   return (
@@ -149,14 +192,19 @@ export default function Home() {
       </header>
 
       <div className="statusRail">
-        <span className={`statusDot${isConnected ? " online" : ""}`} />
-        <strong>{isConnected ? "ONLINE" : "RECONNECTING"}</strong>
+        <span className={`statusDot ${connectionStatus}`} />
+        <strong>{connectionStatusLabel(connectionStatus)}</strong>
         <span>{screenLabel(screen)}</span>
         {room && <span>{room.name} / {stageLabel(room.stageId)}</span>}
       </div>
 
-      {!isConnected && <div className="toast">サーバーへ再接続しています...</div>}
-      {message && <div className="toast">{message}</div>}
+      {notice && (
+        <div className={`toast ${notice.kind}`} role="status">
+          <strong>{noticeLabel(notice.kind)}</strong>
+          <span>{notice.text}</span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">x</button>
+        </div>
+      )}
 
       {screen === "login" && (
         <section className="panel auth">
@@ -189,7 +237,7 @@ export default function Home() {
               name="sky-rush-room-password"
             />
           </label>
-          <button className="primary" onClick={login}>入る</button>
+          <button className="primary" disabled={!isConnected || !playerName.trim() || !password} onClick={login}>入る</button>
         </section>
       )}
 
@@ -241,7 +289,7 @@ export default function Home() {
               最大人数 {maxPlayers}
               <input type="range" min={2} max={50} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
             </label>
-            <button className="primary" onClick={createRoom}>作成</button>
+            <button className="primary" disabled={!isConnected} onClick={createRoom}>作成</button>
           </div>
           <div className="panel">
             <div className="panelHeader">
@@ -263,7 +311,7 @@ export default function Home() {
                       <small>{entry.started ? "STARTED" : "OPEN"}</small>
                     </span>
                   </div>
-                  <button disabled={entry.started} onClick={() => socket?.emit("joinRoom", entry.id)}>
+                  <button disabled={!isConnected || entry.started} onClick={() => joinSelectedRoom(entry.id)}>
                     {entry.started ? "開始済み" : "参加"}
                   </button>
                 </article>
@@ -320,7 +368,7 @@ export default function Home() {
             </div>
           )}
           <div className="actionBar">
-            {isOwner ? <button className="primary" onClick={() => socket?.emit("startGame")}>開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
+            {isOwner ? <button className="primary" disabled={!isConnected} onClick={() => socket?.emit("startGame")}>開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
           </div>
         </section>
       )}
@@ -405,6 +453,25 @@ function screenLabel(screen: Screen) {
     result: "RESULT"
   };
   return labels[screen];
+}
+
+function connectionStatusLabel(status: ConnectionStatus) {
+  const labels: Record<ConnectionStatus, string> = {
+    connecting: "CONNECTING",
+    online: "ONLINE",
+    offline: "OFFLINE"
+  };
+  return labels[status];
+}
+
+function noticeLabel(kind: NoticeKind) {
+  const labels: Record<NoticeKind, string> = {
+    info: "INFO",
+    success: "OK",
+    warning: "WAIT",
+    error: "ERROR"
+  };
+  return labels[kind];
 }
 
 function altitudeProgress(altitude: number, stageId: StageId) {

@@ -138,6 +138,16 @@ h2 {
   box-shadow: 0 0 12px #4fe0a7;
 }
 
+.statusDot.connecting {
+  background: #ffd47a;
+  box-shadow: 0 0 12px #ffd47a;
+}
+
+.statusDot.offline {
+  background: #ff6b6b;
+  box-shadow: 0 0 12px #ff6b6b;
+}
+
 .grid.two {
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
@@ -486,11 +496,54 @@ input[type="range"] {
 }
 
 .toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 16px;
-  border: 1px solid #d56b6b;
-  background: #3c1d22;
+  border: 1px solid #4f89a8;
+  background: #10202d;
   padding: 12px;
   border-radius: 6px;
+}
+
+.toast strong {
+  color: #ffffff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.toast span {
+  min-width: 0;
+  color: #d8ecf7;
+}
+
+.toast button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.toast.info {
+  border-color: #62d2ff;
+  background: #10283a;
+}
+
+.toast.success {
+  border-color: #4fe0a7;
+  background: #123226;
+}
+
+.toast.warning {
+  border-color: #ffd47a;
+  background: #332914;
+}
+
+.toast.error {
+  border-color: #ff6b6b;
+  background: #3c1d22;
 }
 
 .gameWrap {
