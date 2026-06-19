@@ -185,7 +185,7 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Sky Rush v0.1</p>
+          <p className="eyebrow">Sky Rush v1.0</p>
           <h1>スカイラッシュ</h1>
         </div>
         {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
@@ -213,7 +213,7 @@ export default function Home() {
               <p className="eyebrow">Entry Gate</p>
               <h2>ログイン</h2>
             </div>
-            <span className="panelBadge">v0.1</span>
+            <span className="panelBadge">v1.0</span>
           </div>
           <label>
             プレイヤー名

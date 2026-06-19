@@ -1,4 +1,4 @@
-# Sky Rush v0.1
+# Sky Rush v1.0
 
 Sky Rush は、ブラウザで遊べるオンライン登山レースゲームです。Phaser 3 でゲーム画面を描画し、Socket.IO でリアルタイム同期します。
 

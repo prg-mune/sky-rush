@@ -223,21 +223,69 @@ export function buildStagePlatforms(platforms: Platform[], climbHeight: number, 
   ];
   const allowedGoalApproachY = new Set(goalApproachPlatforms.map((platform) => platform.y));
   const goalClearanceBottom = stage.goalY + 520;
+  const maxBaseAltitude = Math.max(...platforms.map((platform) => baseCourse.spawnY - platform.y));
+  const playableTopAltitude = includeGoalApproach ? climbHeight - 650 : climbHeight - 260;
   const expanded: Platform[] = [];
-  const cycles = Math.ceil((climbHeight + 420) / baseCourse.climbHeight);
-  for (let cycle = 0; cycle < cycles; cycle += 1) {
-    for (const platform of platforms) {
-      const baseAltitude = baseCourse.spawnY - platform.y;
-      if (baseAltitude < -160) continue;
-      const altitude = baseAltitude + cycle * baseCourse.climbHeight;
-      if (altitude < -160 || altitude > climbHeight - 120) continue;
-      const y = spawnY - altitude;
-      if (includeGoalApproach && y > stage.goalY && y < goalClearanceBottom && !allowedGoalApproachY.has(y)) continue;
-      expanded.push({ ...platform, y, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
+  for (const platform of platforms) {
+    const baseAltitude = baseCourse.spawnY - platform.y;
+    if (baseAltitude < -160) continue;
+    const altitude = baseAltitude <= 0
+      ? baseAltitude
+      : (baseAltitude / maxBaseAltitude) * playableTopAltitude;
+    const y = spawnY - altitude;
+    if (altitude > climbHeight - 120) continue;
+    if (y > stage.goalY && y < goalClearanceBottom && !allowedGoalApproachY.has(y)) continue;
+    expanded.push(fitPlatformToCourse({ ...platform, y, phaseMs: platform.phaseMs ?? 0 }, { spawnY, goalY: stage.goalY }));
+  }
+
+  const connectors = buildVerticalConnectors(expanded, climbHeight, includeGoalApproach);
+  if (includeGoalApproach) expanded.push(...goalApproachPlatforms);
+  return [...expanded, ...connectors].sort((a, b) => b.y - a.y);
+}
+
+function fitPlatformToCourse(platform: Platform, metrics: { spawnY: number; goalY: number }): Platform {
+  const bounds = courseBoundsAt(platform.y, metrics);
+  const margin = 24;
+  const maxCourseWidth = Math.max(180, bounds.right - bounds.left - margin * 2);
+  const w = Math.min(platform.w, maxCourseWidth);
+  const maxW = platform.maxW ? Math.min(platform.maxW, maxCourseWidth) : platform.maxW;
+  const minW = platform.minW ? Math.min(platform.minW, maxW ?? maxCourseWidth) : platform.minW;
+  const left = bounds.left + margin;
+  const right = bounds.right - margin - w;
+  const x = Math.max(left, Math.min(platform.x, right));
+  return { ...platform, x, w, minW, maxW };
+}
+
+function buildVerticalConnectors(platforms: Platform[], climbHeight: number, includeGoalApproach: boolean) {
+  const rows = [...new Set(platforms.map((platform) => Math.round(platform.y)))].sort((a, b) => b - a);
+  const connectors: Platform[] = [];
+  const maxRise = 330;
+  for (let index = 0; index < rows.length - 1; index += 1) {
+    const fromY = rows[index];
+    const toY = rows[index + 1];
+    const gap = fromY - toY;
+    if (gap <= maxRise) continue;
+    const steps = Math.ceil(gap / maxRise);
+    for (let step = 1; step < steps; step += 1) {
+      const y = fromY - (gap * step) / steps;
+      if (includeGoalApproach && y > stage.goalY && y < stage.goalY + 520) continue;
+      const ratio = Math.max(0, Math.min(1, (stage.goalY + climbHeight - y) / climbHeight));
+      const lane = (index + step) % 3;
+      const centerX = lane === 0 ? 820 : lane === 1 ? 1100 : 1380;
+      const width = Math.max(210, 300 - ratio * 55);
+      connectors.push(fitPlatformToCourse({
+        x: centerX - width / 2,
+        y,
+        w: width,
+        h: 24,
+        kind: (index + step) % 4 === 0 ? "vanish" : undefined,
+        visibleMs: 2700,
+        hiddenMs: 900,
+        phaseMs: index * 260 + step * 180
+      }, { spawnY: stage.goalY + climbHeight, goalY: stage.goalY }));
     }
   }
-  if (includeGoalApproach) expanded.push(...goalApproachPlatforms);
-  return expanded.sort((a, b) => b.y - a.y);
+  return connectors;
 }
 
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
@@ -309,6 +357,11 @@ export function checkStageLayouts() {
     if (blockers.length > 0) {
       issues.push(`${stageId}: ${blockers.length} platform(s) inside goal clearance`);
     }
+    const metrics = stageMetrics(stageId);
+    const clippedPlatforms = platforms.filter((platform) => playableWidth(platform, metrics) < effectiveWidth(platform) - 1);
+    if (clippedPlatforms.length > 0) {
+      issues.push(`${stageId}: ${clippedPlatforms.length} platform(s) too narrow inside course bounds`);
+    }
     const reachabilityIssue = checkReachability(stageId, definition.mode, platforms);
     if (reachabilityIssue) issues.push(reachabilityIssue);
   }
@@ -323,9 +376,9 @@ function checkReachability(stageId: StageId, mode: GameMode, platforms: Platform
     { label: "spawn", x: stage.spawnX - 580, y: metrics.spawnY + 110, w: 1160 },
     ...platforms.map((platform, index) => ({
       label: `${index}:${platform.kind ?? "normal"}@${Math.round(platform.y)}`,
-      x: effectiveX(platform),
+      x: effectiveX(platform, metrics),
       y: platform.y,
-      w: effectiveWidth(platform)
+      w: playableWidth(platform, metrics)
     })),
     { label: "goal", x: 980, y: stage.goalY, w: 260 }
   ].sort((a, b) => b.y - a.y);
@@ -367,7 +420,15 @@ function effectiveWidth(platform: Platform) {
   return platform.kind === "stretch" ? platform.minW ?? platform.w : platform.w;
 }
 
-function effectiveX(platform: Platform) {
+function effectiveX(platform: Platform, metrics: { spawnY: number; goalY: number }) {
   const width = effectiveWidth(platform);
-  return platform.x + platform.w / 2 - width / 2;
+  const x = platform.x + platform.w / 2 - width / 2;
+  return Math.max(x, courseBoundsAt(platform.y, metrics).left);
+}
+
+function playableWidth(platform: Platform, metrics: { spawnY: number; goalY: number }) {
+  const width = effectiveWidth(platform);
+  const x = platform.x + platform.w / 2 - width / 2;
+  const bounds = courseBoundsAt(platform.y, metrics);
+  return Math.max(0, Math.min(x + width, bounds.right) - Math.max(x, bounds.left));
 }
