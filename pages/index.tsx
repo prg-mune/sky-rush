@@ -4,6 +4,7 @@ import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
   GameMode,
+  PlayerSnapshot,
   ResultRow,
   RoomState,
   RoomSummary,
@@ -76,6 +77,10 @@ export default function Home() {
   }, []);
 
   const me = useMemo(() => room?.players.find((player) => player.id === socket?.id), [room, socket?.id]);
+  const leader = useMemo<PlayerSnapshot | undefined>(
+    () => room?.players.reduce((best, player) => (player.altitude > best.altitude ? player : best), room.players[0]),
+    [room]
+  );
   const isOwner = Boolean(room && socket?.id === room.ownerId);
   const selectableStages = useMemo(() => stageOptions.filter((stage) => stage.mode === mode), [mode]);
   const countdownMs = Math.max(0, (room?.startedAt || 0) - now);
@@ -168,15 +173,29 @@ export default function Home() {
                 <option value="team">チーム登山</option>
               </select>
             </label>
-            <label>
-              ステージ
-              <select value={stageId} onChange={(event) => setStageId(event.target.value as StageId)}>
+            <div className="stagePicker">
+              <span className="stagePickerLabel">ステージ</span>
+              <div className="stageOptions">
                 {selectableStages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>{stage.name} / {stage.difficulty}</option>
+                  <button
+                    key={stage.id}
+                    type="button"
+                    className={`stageOption${stage.id === stageId ? " active" : ""}`}
+                    onClick={() => setStageId(stage.id)}
+                  >
+                    <span className="stageOptionTop">
+                      <strong>{stage.name}</strong>
+                      <span>{stage.difficulty}</span>
+                    </span>
+                    <span className="stageOptionMeta">
+                      <span>{stage.climbHeight}m</span>
+                      <small>{stage.description}</small>
+                    </span>
+                  </button>
                 ))}
-              </select>
+              </div>
               <span className="fieldHint">{stageDescription(stageId)}</span>
-            </label>
+            </div>
             <label>
               最大人数 {maxPlayers}
               <input type="range" min={2} max={50} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
@@ -253,6 +272,30 @@ export default function Home() {
         <section className={`gameWrap${isLastSpurt ? " lastSpurt" : ""}`}>
           <div className="hud left">順位 {socket.id ? rankOf(room, socket.id) : "-"} / {room.players.length} 位</div>
           <div className="hud right">高度 {Math.round(me?.altitude || 0)}m</div>
+          <div className="altitudeMap" aria-label="Altitude map">
+            <div className="altitudeTrack">
+              <span
+                className="altitudeFill"
+                style={{ height: `${altitudeProgress(me?.altitude || 0, room.stageId)}%` }}
+              />
+              {leader && (
+                <span
+                  className="altitudeMarker leader"
+                  style={{ bottom: `${altitudeProgress(leader.altitude, room.stageId)}%` }}
+                />
+              )}
+              {me && (
+                <span
+                  className="altitudeMarker me"
+                  style={{ bottom: `${altitudeProgress(me.altitude, room.stageId)}%` }}
+                />
+              )}
+            </div>
+            <div className="altitudeMapLabel">
+              <strong>{Math.round(me?.altitude || 0)}m</strong>
+              <span>/{stageClimbHeight(room.stageId)}m</span>
+            </div>
+          </div>
           {countdownLabel && <div className="countdown">{countdownLabel}</div>}
           {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">LAST SPURT</div>}
           <SkyRushGame socket={socket} room={room} />
@@ -289,6 +332,11 @@ export default function Home() {
 function rankOf(room: RoomState, socketId: string) {
   const sorted = [...room.players].sort((a, b) => b.altitude - a.altitude);
   return sorted.findIndex((player) => player.id === socketId) + 1;
+}
+
+function altitudeProgress(altitude: number, stageId: StageId) {
+  const climbHeight = stageClimbHeight(stageId);
+  return Math.max(0, Math.min(100, (altitude / climbHeight) * 100));
 }
 
 function stageLabel(stageId: StageId) {
