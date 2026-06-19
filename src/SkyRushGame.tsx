@@ -584,6 +584,8 @@ function stageMetrics(stageId: StageId) {
 
 function buildStagePlatforms(platforms: PlatformView[], climbHeight: number, includeGoalApproach = true) {
   const spawnY = baseCourse.goalY + climbHeight;
+  const goalApproachY = baseCourse.goalY + 260;
+  const goalClearanceBottom = baseCourse.goalY + 520;
   const expanded: PlatformView[] = [];
   const cycles = Math.ceil((climbHeight + 420) / baseCourse.climbHeight);
   for (let cycle = 0; cycle < cycles; cycle += 1) {
@@ -592,10 +594,12 @@ function buildStagePlatforms(platforms: PlatformView[], climbHeight: number, inc
       if (baseAltitude < -160) continue;
       const altitude = baseAltitude + cycle * baseCourse.climbHeight;
       if (altitude < -160 || altitude > climbHeight - 120) continue;
-      expanded.push({ ...platform, y: spawnY - altitude, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
+      const y = spawnY - altitude;
+      if (includeGoalApproach && y > baseCourse.goalY && y < goalClearanceBottom) continue;
+      expanded.push({ ...platform, y, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
     }
   }
-  if (includeGoalApproach) expanded.push({ x: 980, y: baseCourse.goalY + 260, w: 260, h: 24 });
+  if (includeGoalApproach) expanded.push({ x: 980, y: goalApproachY, w: 260, h: 24 });
   return expanded.sort((a, b) => b.y - a.y);
 }
 

@@ -426,6 +426,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
 }
 
 app.prepare().then(() => {
+  validateStageLayouts();
   const httpServer = createServer((req, res) => handle(req, res));
   const io: SkyRushServer = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
     cors: { origin: "*" },
@@ -626,6 +627,8 @@ function stageMetrics(stageId: StageId) {
 
 function buildStagePlatforms(platforms: Platform[], climbHeight: number, includeGoalApproach = true) {
   const spawnY = stage.goalY + climbHeight;
+  const goalApproachY = stage.goalY + 260;
+  const goalClearanceBottom = stage.goalY + 520;
   const expanded: Platform[] = [];
   const cycles = Math.ceil((climbHeight + 420) / baseCourse.climbHeight);
   for (let cycle = 0; cycle < cycles; cycle += 1) {
@@ -634,11 +637,27 @@ function buildStagePlatforms(platforms: Platform[], climbHeight: number, include
       if (baseAltitude < -160) continue;
       const altitude = baseAltitude + cycle * baseCourse.climbHeight;
       if (altitude < -160 || altitude > climbHeight - 120) continue;
-      expanded.push({ ...platform, y: spawnY - altitude, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
+      const y = spawnY - altitude;
+      if (includeGoalApproach && y > stage.goalY && y < goalClearanceBottom) continue;
+      expanded.push({ ...platform, y, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
     }
   }
-  if (includeGoalApproach) expanded.push({ x: 980, y: stage.goalY + 260, w: 260, h: 24 });
+  if (includeGoalApproach) expanded.push({ x: 980, y: goalApproachY, w: 260, h: 24 });
   return expanded.sort((a, b) => b.y - a.y);
+}
+
+function validateStageLayouts() {
+  const goalApproachY = stage.goalY + 260;
+  const goalClearanceBottom = stage.goalY + 520;
+  const issues: string[] = [];
+  for (const [stageId, definition] of Object.entries(stageDefinitions)) {
+    const platforms = buildStagePlatforms(definition.platforms, definition.climbHeight);
+    const blockers = platforms.filter((platform) => platform.y > stage.goalY && platform.y < goalClearanceBottom && platform.y !== goalApproachY);
+    if (blockers.length > 0) {
+      issues.push(`${stageId}: ${blockers.length} platform(s) inside goal clearance`);
+    }
+  }
+  if (issues.length > 0) throw new Error(`Invalid stage layout: ${issues.join(", ")}`);
 }
 
 function normalizeStageId(mode: GameMode, stageId: StageId): StageId {
