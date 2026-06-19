@@ -11,7 +11,8 @@ body,
 
 body {
   background:
-    linear-gradient(180deg, rgba(42, 132, 184, 0.28), transparent 360px),
+    linear-gradient(180deg, rgba(64, 171, 214, 0.28), transparent 330px),
+    linear-gradient(90deg, rgba(242, 184, 75, 0.12), transparent 34%, rgba(255, 107, 107, 0.1)),
     #0f1720;
   color: #eef6fb;
   font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
@@ -30,6 +31,12 @@ button {
   border-radius: 6px;
   padding: 10px 14px;
   cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #ffd47a;
 }
 
 button:disabled {
@@ -59,7 +66,9 @@ button:disabled {
 }
 
 .topbar {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 h1,
@@ -69,7 +78,9 @@ p {
 }
 
 h1 {
-  font-size: 34px;
+  font-size: 38px;
+  letter-spacing: 0;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
 }
 
 h2 {
@@ -86,6 +97,45 @@ h2 {
   margin-bottom: 4px;
   font-size: 13px;
   text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.statusRail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(122, 162, 189, 0.38);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: rgba(9, 19, 28, 0.58);
+  color: #b7cfe0;
+  font-size: 13px;
+}
+
+.statusRail strong {
+  color: #ffffff;
+}
+
+.statusRail span:not(.statusDot) {
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  padding-left: 10px;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff6b6b;
+  box-shadow: 0 0 12px #ff6b6b;
+}
+
+.statusDot.online {
+  background: #4fe0a7;
+  box-shadow: 0 0 12px #4fe0a7;
 }
 
 .grid.two {
@@ -100,6 +150,29 @@ h2 {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.panelHeader h2 {
+  margin-bottom: 0;
+}
+
+.panelBadge {
+  border: 1px solid rgba(255, 212, 122, 0.58);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(242, 184, 75, 0.14);
+  color: #ffd47a;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .auth {
@@ -218,13 +291,63 @@ input[type="range"] {
   border: 1px solid #2e5067;
   border-radius: 8px;
   padding: 12px;
-  background: #10202d;
+  background:
+    linear-gradient(90deg, rgba(79, 224, 167, 0.08), transparent 50%),
+    #10202d;
 }
 
 .roomItem span {
   display: block;
   color: #9eb4c4;
   margin-top: 4px;
+}
+
+.roomBadges {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px !important;
+}
+
+.roomBadges small {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d8ecf7;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.matchStats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.matchStats span {
+  min-width: 86px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(14, 25, 34, 0.72);
+  text-align: right;
+}
+
+.matchStats strong,
+.matchStats small {
+  display: block;
+}
+
+.matchStats strong {
+  color: #ffffff;
+  font-size: 17px;
+}
+
+.matchStats small {
+  color: #9eb4c4;
+  font-size: 11px;
 }
 
 .players {
@@ -352,6 +475,14 @@ input[type="range"] {
 
 .teamPicker button.active {
   border-color: transparent;
+}
+
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .toast {
@@ -520,6 +651,24 @@ input[type="range"] {
   font-weight: 700;
 }
 
+.resultPanel {
+  overflow: hidden;
+}
+
+.resultHero {
+  margin: -22px -22px 18px;
+  padding: 22px;
+  background:
+    linear-gradient(90deg, rgba(242, 184, 75, 0.22), transparent 55%),
+    linear-gradient(135deg, rgba(79, 224, 167, 0.12), rgba(255, 107, 107, 0.12));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.resultHero h2 {
+  margin-bottom: 8px;
+  font-size: 30px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -531,6 +680,17 @@ td {
   border-bottom: 1px solid #2e5067;
   padding: 12px 8px;
   text-align: left;
+}
+
+th {
+  color: #ffd47a;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+tbody tr:nth-child(1) td {
+  color: #ffffff;
+  font-weight: 800;
 }
 
 @keyframes spurtPulse {
@@ -548,6 +708,39 @@ td {
   .waitingHeader {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .statusRail {
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .panelHeader,
+  .actionBar {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .panelBadge {
+    width: fit-content;
+  }
+
+  .matchStats {
+    justify-content: stretch;
+  }
+
+  .matchStats span {
+    flex: 1 1 90px;
+    text-align: left;
   }
 
   .gameWrap,

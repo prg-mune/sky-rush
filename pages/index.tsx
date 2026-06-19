@@ -148,12 +148,25 @@ export default function Home() {
         {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
       </header>
 
+      <div className="statusRail">
+        <span className={`statusDot${isConnected ? " online" : ""}`} />
+        <strong>{isConnected ? "ONLINE" : "RECONNECTING"}</strong>
+        <span>{screenLabel(screen)}</span>
+        {room && <span>{room.name} / {stageLabel(room.stageId)}</span>}
+      </div>
+
       {!isConnected && <div className="toast">サーバーへ再接続しています...</div>}
       {message && <div className="toast">{message}</div>}
 
       {screen === "login" && (
         <section className="panel auth">
-          <h2>ログイン</h2>
+          <div className="panelHeader">
+            <div>
+              <p className="eyebrow">Entry Gate</p>
+              <h2>ログイン</h2>
+            </div>
+            <span className="panelBadge">v0.1</span>
+          </div>
           <label>
             プレイヤー名
             <input
@@ -183,7 +196,13 @@ export default function Home() {
       {screen === "lobby" && (
         <section className="grid two">
           <div className="panel">
-            <h2>部屋を作成</h2>
+            <div className="panelHeader">
+              <div>
+                <p className="eyebrow">Create Match</p>
+                <h2>部屋を作成</h2>
+              </div>
+              <span className="panelBadge">{maxPlayers} Racers</span>
+            </div>
             <label>
               部屋名
               <input value={roomName} onChange={(event) => setRoomName(event.target.value)} placeholder={`${playerName || "Player"}の部屋`} />
@@ -225,14 +244,24 @@ export default function Home() {
             <button className="primary" onClick={createRoom}>作成</button>
           </div>
           <div className="panel">
-            <h2>参加可能な部屋</h2>
+            <div className="panelHeader">
+              <div>
+                <p className="eyebrow">Match List</p>
+                <h2>参加可能な部屋</h2>
+              </div>
+              <span className="panelBadge">{rooms.length} Rooms</span>
+            </div>
             <div className="roomList">
               {rooms.length === 0 && <p className="muted">部屋はまだありません。</p>}
               {rooms.map((entry) => (
                 <article className="roomItem" key={entry.id}>
                   <div>
                     <strong>{entry.name}</strong>
-                    <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {stageLabel(entry.stageId)} / {entry.playerCount} / {entry.maxPlayers}</span>
+                    <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {stageLabel(entry.stageId)}</span>
+                    <span className="roomBadges">
+                      <small>{entry.playerCount} / {entry.maxPlayers}</small>
+                      <small>{entry.started ? "STARTED" : "OPEN"}</small>
+                    </span>
                   </div>
                   <button disabled={entry.started} onClick={() => socket?.emit("joinRoom", entry.id)}>
                     {entry.started ? "開始済み" : "参加"}
@@ -252,7 +281,11 @@ export default function Home() {
               <h2>{room.name}</h2>
               <p className="muted">{stageLabel(room.stageId)}</p>
             </div>
-            <p>{room.players.length} / {room.maxPlayers} 開始時CPU補充</p>
+            <div className="matchStats">
+              <span><strong>{room.players.length}</strong><small>/ {room.maxPlayers}</small></span>
+              <span><strong>{room.players.filter((player) => player.connected).length}</strong><small>Online</small></span>
+              <span><strong>{stageClimbHeight(room.stageId)}m</strong><small>Course</small></span>
+            </div>
           </div>
           <div className="players">
             {room.players.map((player) => (
@@ -286,7 +319,9 @@ export default function Home() {
               ))}
             </div>
           )}
-          {isOwner && <button className="primary" onClick={() => socket?.emit("startGame")}>開始</button>}
+          <div className="actionBar">
+            {isOwner ? <button className="primary" onClick={() => socket?.emit("startGame")}>開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
+          </div>
         </section>
       )}
 
@@ -325,10 +360,13 @@ export default function Home() {
       )}
 
       {screen === "result" && (
-        <section className="panel">
-          <h2>リザルト</h2>
-          {room?.winnerId && <p className="winner">Winner: {room.players.find((player) => player.id === room.winnerId)?.name}</p>}
-          {room?.winningTeam && <p className="winner">Winning Team: Team {room.winningTeam}</p>}
+        <section className="panel resultPanel">
+          <div className="resultHero">
+            <p className="eyebrow">Result Board</p>
+            <h2>リザルト</h2>
+            {room?.winnerId && <p className="winner">Winner: {room.players.find((player) => player.id === room.winnerId)?.name}</p>}
+            {room?.winningTeam && <p className="winner">Winning Team: Team {room.winningTeam}</p>}
+          </div>
           <table>
             <thead>
               <tr><th>順位</th><th>プレイヤー</th><th>高度</th><th>ゴール時間</th></tr>
@@ -344,7 +382,9 @@ export default function Home() {
               ))}
             </tbody>
           </table>
-          <button className="primary" onClick={leaveToLobby}>ロビーへ戻る</button>
+          <div className="actionBar">
+            <button className="primary" onClick={leaveToLobby}>ロビーへ戻る</button>
+          </div>
         </section>
       )}
     </main>
@@ -354,6 +394,17 @@ export default function Home() {
 function rankOf(room: RoomState, socketId: string) {
   const sorted = [...room.players].sort((a, b) => b.altitude - a.altitude);
   return sorted.findIndex((player) => player.id === socketId) + 1;
+}
+
+function screenLabel(screen: Screen) {
+  const labels: Record<Screen, string> = {
+    login: "ENTRY",
+    lobby: "LOBBY",
+    waiting: "READY ROOM",
+    game: "MATCH",
+    result: "RESULT"
+  };
+  return labels[screen];
 }
 
 function altitudeProgress(altitude: number, stageId: StageId) {
