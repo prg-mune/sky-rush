@@ -349,6 +349,7 @@ export function stagePlatforms(mode: GameMode, stageId: StageId) {
   const normalizedStageId = normalizeStageId(mode, stageId);
   const selected = stageDefinitions[normalizedStageId];
   if (normalizedStageId === "battle_01_garden") return gardenPlatforms(selected.climbHeight);
+  if (normalizedStageId === "battle_03_cloud_jumble") return cloudJumblePlatforms(selected.climbHeight);
   const sourcePlatforms = mode === "team" ? selected.platforms.filter((platform) => ![1820, 1540, 1260].includes(platform.y)) : selected.platforms;
   const basePlatforms = buildStagePlatforms(sourcePlatforms, selected.climbHeight);
   if (mode !== "team") return basePlatforms;
@@ -378,6 +379,55 @@ function gardenPlatforms(climbHeight: number) {
 
     { x: 760, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 500 },
     { x: 1280, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 1500 },
+    { x: 850, y: 420, w: 300, h: 24 }
+  ];
+  return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
+}
+
+function cloudJumblePlatforms(climbHeight: number) {
+  const spawnY = stage.goalY + climbHeight;
+  const startY = spawnY + stage.playerH;
+  const metrics = { spawnY, goalY: stage.goalY };
+  const platforms: Platform[] = [
+    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+
+    { x: 260, y: 4890, w: 380, h: 24, kind: "vanish", visibleMs: 3100, hiddenMs: 900, phaseMs: 100 },
+    { x: 950, y: 4890, w: 390, h: 24 },
+    { x: 1560, y: 4890, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 900 },
+
+    { x: 650, y: 4560, w: 350, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1100, phaseMs: 400 },
+    { x: 1260, y: 4560, w: 360, h: 24 },
+
+    { x: 360, y: 4230, w: 330, h: 24 },
+    { x: 1030, y: 4230, w: 340, h: 24, kind: "vanish", visibleMs: 2700, hiddenMs: 1000, phaseMs: 1200 },
+
+    { x: 1410, y: 3900, w: 330, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1200, phaseMs: 500 },
+    { x: 760, y: 3900, w: 330, h: 24 },
+
+    { x: 470, y: 3570, w: 320, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1100, phaseMs: 1600 },
+    { x: 1110, y: 3570, w: 330, h: 24, kind: "stretch", minW: 210, maxW: 390, periodMs: 3500, phaseMs: 700 },
+
+    { x: 1430, y: 3240, w: 310, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 300 },
+    { x: 740, y: 3240, w: 320, h: 24 },
+
+    { x: 520, y: 2910, w: 300, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1200, phaseMs: 1100 },
+    { x: 1160, y: 2910, w: 310, h: 24 },
+
+    { x: 1470, y: 2580, w: 300, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1300, phaseMs: 600 },
+    { x: 830, y: 2580, w: 300, h: 24, kind: "vanish", visibleMs: 2700, hiddenMs: 1000, phaseMs: 1700 },
+
+    { x: 570, y: 2250, w: 300, h: 24 },
+    { x: 1130, y: 2250, w: 300, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 900 },
+
+    { x: 1370, y: 1920, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1300, phaseMs: 200 },
+    { x: 780, y: 1920, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3300, phaseMs: 1000 },
+
+    { x: 1020, y: 1590, w: 300, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 1500 },
+    { x: 610, y: 1260, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 800 },
+    { x: 1190, y: 1260, w: 290, h: 24 },
+
+    { x: 930, y: 930, w: 300, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 400 },
+    { x: 1180, y: 650, w: 320, h: 24 },
     { x: 850, y: 420, w: 300, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
