@@ -106,6 +106,15 @@ function renderStage(preview: (typeof previews)[number], offsetY: number) {
     <line x1="${padding}" y1="${altitudeY(band.altitude).toFixed(1)}" x2="${(width - padding).toFixed(1)}" y2="${altitudeY(band.altitude).toFixed(1)}" stroke="rgba(255,255,255,0.16)" stroke-dasharray="6 8" />
     <text x="${padding}" y="${(altitudeY(band.altitude) - 10).toFixed(1)}" class="band">${band.label}</text>
   `).join("");
+  const assistZones = preview.id === "team_01_skybase"
+    ? [
+      { x: 460, y: 1135, w: 1220, h: 560, label: "TEAM BOOST 1" },
+      { x: 615, y: 380, w: 1040, h: 560, label: "TEAM BOOST 2" }
+    ].map((zone) => `
+    <rect x="${sx(zone.x).toFixed(1)}" y="${sy(zone.y).toFixed(1)}" width="${(zone.w * scale).toFixed(1)}" height="${(zone.h * scale).toFixed(1)}" rx="10" fill="#2f4858" opacity="0.34" stroke="#d0ebff" stroke-width="2" stroke-dasharray="8 7" />
+    <text x="${sx(zone.x + 28).toFixed(1)}" y="${(sy(zone.y) + 28).toFixed(1)}" class="assist">${zone.label}</text>
+  `).join("")
+    : "";
 
   const titleY = offsetY + 30;
   return {
@@ -114,6 +123,7 @@ function renderStage(preview: (typeof previews)[number], offsetY: number) {
     <text x="${padding}" y="${titleY}" class="title">${preview.title}</text>
     <text x="${padding}" y="${titleY + 26}" class="note">${preview.note}</text>
     ${routeBands}
+    ${assistZones}
     <line x1="${sx(stage.spawnX - 950).toFixed(1)}" y1="${sy(metrics.spawnY + stage.playerH).toFixed(1)}" x2="${sx(stage.spawnX + 950).toFixed(1)}" y2="${sy(metrics.spawnY + stage.playerH).toFixed(1)}" stroke="#ffffff" stroke-width="2" opacity="0.2" />
     <text x="${sx(stage.spawnX).toFixed(1)}" y="${(sy(metrics.spawnY + stage.playerH) + 34).toFixed(1)}" text-anchor="middle">START FLOOR / 20人対応</text>
     <text x="${sx(stage.spawnX).toFixed(1)}" y="${(sy(stage.goalY) + 12).toFixed(1)}" text-anchor="middle" class="goal">GOAL</text>
@@ -136,6 +146,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width.toFixe
     .title { fill: #ffd166; font-size: 24px; stroke-width: 5px; }
     .note { fill: #bcd1df; font-size: 14px; font-weight: 600; stroke-width: 3px; }
     .band { fill: #9fd8ff; font-size: 15px; }
+    .assist { fill: #d0ebff; font-size: 15px; }
     .goal { fill: #ffd166; font-size: 18px; }
   </style>
   <rect width="100%" height="100%" fill="#0f2c40" />

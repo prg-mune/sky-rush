@@ -101,10 +101,7 @@ export default function SkyRushGame({ socket, room }: Props) {
               animatedPlatforms.push({ platform, body, cap });
             }
           });
-          if (roomRef.current.mode === "team") {
-            this.add.rectangle(1100, 1420, 500, 520, 0x2f4858, 0.34).setStrokeStyle(4, 0xd0ebff, 0.32);
-            this.add.text(930, 1360, "TEAM WALL", { fontFamily: "Arial", fontSize: "26px", color: "#d0ebff", stroke: "#102538", strokeThickness: 5 });
-          }
+          if (roomRef.current.stageId === "team_01_skybase") drawTeamAssistZones(this);
           drawCourseBoundary(this, metrics);
         }
       }
@@ -383,6 +380,22 @@ function drawCourseBoundary(scene: import("phaser").Scene, metrics: { spawnY: nu
   drawBoundaryPath(graphics, yValues, metrics, "right", 18, 0x253d4d, 0.82);
   drawBoundaryPath(graphics, yValues, metrics, "left", 8, 0x8ba5b4, 0.9);
   drawBoundaryPath(graphics, yValues, metrics, "right", 8, 0x8ba5b4, 0.9);
+}
+
+function drawTeamAssistZones(scene: import("phaser").Scene) {
+  [
+    { x: 1070, y: 1415, w: 1220, h: 560, label: "TEAM BOOST 1" },
+    { x: 1135, y: 660, w: 1040, h: 560, label: "TEAM BOOST 2" }
+  ].forEach((zone) => {
+    scene.add.rectangle(zone.x, zone.y, zone.w, zone.h, 0x2f4858, 0.28).setStrokeStyle(4, 0xd0ebff, 0.36);
+    scene.add.text(zone.x - zone.w / 2 + 24, zone.y - zone.h / 2 + 28, zone.label, {
+      fontFamily: "Arial",
+      fontSize: "24px",
+      color: "#d0ebff",
+      stroke: "#102538",
+      strokeThickness: 5
+    });
+  });
 }
 
 function drawBoundaryPath(
