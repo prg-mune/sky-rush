@@ -365,24 +365,22 @@ function gardenPlatforms(climbHeight: number) {
   const platforms: Platform[] = [
     { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
 
-    { x: 230, y: 1930, w: 260, h: 24 },
-    { x: 610, y: 1930, w: 280, h: 24 },
-    { x: 960, y: 1930, w: 280, h: 24, kind: "vanish", visibleMs: 3200, hiddenMs: 900, phaseMs: 300 },
-    { x: 1310, y: 1930, w: 280, h: 24 },
-    { x: 1690, y: 1930, w: 260, h: 24 },
+    { x: 260, y: 1935, w: 430, h: 24 },
+    { x: 980, y: 1935, w: 430, h: 24, kind: "vanish", visibleMs: 3200, hiddenMs: 900, phaseMs: 200 },
 
-    { x: 500, y: 1580, w: 300, h: 24 },
-    { x: 950, y: 1580, w: 300, h: 24, kind: "stretch", minW: 220, maxW: 380, periodMs: 3600, phaseMs: 600 },
-    { x: 1400, y: 1580, w: 300, h: 24 },
+    { x: 640, y: 1690, w: 390, h: 24 },
+    { x: 1270, y: 1690, w: 390, h: 24 },
 
-    { x: 560, y: 1230, w: 320, h: 24 },
-    { x: 940, y: 1230, w: 320, h: 24 },
-    { x: 1320, y: 1230, w: 320, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 1200 },
+    { x: 390, y: 1440, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 900 },
+    { x: 1040, y: 1440, w: 370, h: 24 },
+    { x: 1500, y: 1190, w: 330, h: 24 },
+    { x: 710, y: 1190, w: 330, h: 24 },
 
-    { x: 760, y: 930, w: 320, h: 24 },
-    { x: 1120, y: 930, w: 320, h: 24 },
+    { x: 500, y: 950, w: 320, h: 24 },
+    { x: 1070, y: 950, w: 330, h: 24, kind: "stretch", minW: 210, maxW: 410, periodMs: 3600, phaseMs: 700 },
 
-    { x: 930, y: 650, w: 360, h: 24 },
+    { x: 820, y: 700, w: 300, h: 24 },
+    { x: 1130, y: 700, w: 300, h: 24 },
     { x: 850, y: 420, w: 300, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);

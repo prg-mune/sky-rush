@@ -258,6 +258,20 @@ input[type="range"] {
     #13283a;
 }
 
+.stageOption.disabled {
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #0a141d;
+  color: rgba(255, 255, 255, 0.52);
+  filter: grayscale(0.75);
+  opacity: 0.58;
+}
+
+.stageOption.disabled:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
 .stageOptionTop,
 .stageOptionMeta {
   display: grid;

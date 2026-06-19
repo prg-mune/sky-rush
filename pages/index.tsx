@@ -21,6 +21,7 @@ type NoticeKind = "info" | "success" | "warning" | "error";
 type Notice = { kind: NoticeKind; text: string };
 type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
+const enabledStageIds = new Set<StageId>(["battle_01_garden"]);
 
 const stageOptions: StageOption[] = [
   { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", climbHeight: 2000, description: "足場広めの基本コース" },
@@ -269,12 +270,13 @@ export default function Home() {
                   <button
                     key={stage.id}
                     type="button"
-                    className={`stageOption${stage.id === stageId ? " active" : ""}`}
+                    className={`stageOption${stage.id === stageId ? " active" : ""}${enabledStageIds.has(stage.id) ? "" : " disabled"}`}
+                    disabled={!enabledStageIds.has(stage.id)}
                     onClick={() => setStageId(stage.id)}
                   >
                     <span className="stageOptionTop">
                       <strong>{stage.name}</strong>
-                      <span>{stage.difficulty}</span>
+                      <span>{enabledStageIds.has(stage.id) ? stage.difficulty : "未調整"}</span>
                     </span>
                     <span className="stageOptionMeta">
                       <span>{stage.climbHeight}m</span>
@@ -289,7 +291,7 @@ export default function Home() {
               最大人数 {maxPlayers}
               <input type="range" min={2} max={50} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
             </label>
-            <button className="primary" disabled={!isConnected} onClick={createRoom}>作成</button>
+            <button className="primary" disabled={!isConnected || !enabledStageIds.has(stageId)} onClick={createRoom}>作成</button>
           </div>
           <div className="panel">
             <div className="panelHeader">
