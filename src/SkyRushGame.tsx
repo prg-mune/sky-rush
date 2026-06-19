@@ -105,12 +105,7 @@ export default function SkyRushGame({ socket, room }: Props) {
             this.add.rectangle(1100, 1420, 500, 520, 0x2f4858, 0.34).setStrokeStyle(4, 0xd0ebff, 0.32);
             this.add.text(930, 1360, "TEAM WALL", { fontFamily: "Arial", fontSize: "26px", color: "#d0ebff", stroke: "#102538", strokeThickness: 5 });
           }
-          for (let y = metrics.goalY; y < metrics.spawnY + 220; y += 160) {
-            const bounds = courseBoundsAt(y, metrics);
-            const nextBounds = courseBoundsAt(y + 160, metrics);
-            this.add.line(0, 0, bounds.left, y, nextBounds.left, y + 160, 0x6f8795, 0.9).setLineWidth(10);
-            this.add.line(0, 0, bounds.right, y, nextBounds.right, y + 160, 0x6f8795, 0.9).setLineWidth(10);
-          }
+          drawCourseBoundary(this, metrics);
         }
       }
 
@@ -376,6 +371,38 @@ function courseBoundsAt(y: number, metrics: { spawnY: number; goalY: number }) {
     left: center - width / 2,
     right: center + width / 2
   };
+}
+
+function drawCourseBoundary(scene: import("phaser").Scene, metrics: { spawnY: number; goalY: number }) {
+  const yValues: number[] = [];
+  for (let y = metrics.goalY; y <= metrics.spawnY + 220; y += 120) yValues.push(y);
+  if (yValues[yValues.length - 1] < metrics.spawnY + 220) yValues.push(metrics.spawnY + 220);
+
+  const graphics = scene.add.graphics();
+  drawBoundaryPath(graphics, yValues, metrics, "left", 18, 0x253d4d, 0.82);
+  drawBoundaryPath(graphics, yValues, metrics, "right", 18, 0x253d4d, 0.82);
+  drawBoundaryPath(graphics, yValues, metrics, "left", 8, 0x8ba5b4, 0.9);
+  drawBoundaryPath(graphics, yValues, metrics, "right", 8, 0x8ba5b4, 0.9);
+}
+
+function drawBoundaryPath(
+  graphics: import("phaser").GameObjects.Graphics,
+  yValues: number[],
+  metrics: { spawnY: number; goalY: number },
+  side: "left" | "right",
+  width: number,
+  color: number,
+  alpha: number
+) {
+  graphics.lineStyle(width, color, alpha);
+  graphics.beginPath();
+  yValues.forEach((y, index) => {
+    const bounds = courseBoundsAt(y, metrics);
+    const x = side === "left" ? bounds.left : bounds.right;
+    if (index === 0) graphics.moveTo(x, y);
+    else graphics.lineTo(x, y);
+  });
+  graphics.strokePath();
 }
 
 function activePlatforms(mode: RoomState["mode"], stageId: StageId): PlatformView[] {
