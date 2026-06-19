@@ -547,7 +547,7 @@ function everestRushPlatforms(climbHeight: number) {
 
     { x: 850, y: 1950, w: 240, h: 24, kind: "stretch", minW: 160, maxW: 300, periodMs: 3000, phaseMs: 1200 },
     { x: 1120, y: 1620, w: 240, h: 24, kind: "vanish", visibleMs: 2000, hiddenMs: 1400, phaseMs: 900 },
-    { x: 820, y: 1290, w: 230, h: 24, kind: "vanish", visibleMs: 1900, hiddenMs: 1400, phaseMs: 300 },
+    { x: 820, y: 1290, w: 230, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 900, phaseMs: 900 },
 
     { x: 1100, y: 960, w: 230, h: 24, kind: "vanish", visibleMs: 1900, hiddenMs: 1450, phaseMs: 1300 },
     { x: 880, y: 650, w: 230, h: 24, kind: "stretch", minW: 150, maxW: 290, periodMs: 2800, phaseMs: 700 },
