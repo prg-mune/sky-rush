@@ -609,6 +609,11 @@ input[type="range"] {
   left: 14px;
 }
 
+.hud.center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .hud.right {
   right: 14px;
 }
@@ -700,7 +705,7 @@ input[type="range"] {
   position: absolute;
   z-index: 3;
   left: 50%;
-  top: 18px;
+  top: 58px;
   transform: translateX(-50%);
   color: #17202a;
   background: #ffd47a;
@@ -709,6 +714,44 @@ input[type="range"] {
   padding: 8px 14px;
   font-size: 15px;
   font-weight: 900;
+}
+
+.spectatorPanel {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  max-width: min(760px, calc(100% - 28px));
+  padding: 9px 12px;
+  border: 1px solid rgba(159, 216, 255, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 19, 30, 0.86);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.spectatorPanel strong {
+  color: #ffd47a;
+}
+
+.spectatorPanel span {
+  color: #d6e7f2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.spectatorPanel div {
+  display: flex;
+  gap: 6px;
+}
+
+.spectatorPanel button {
+  min-height: 30px;
+  padding: 5px 9px;
 }
 
 .winner {

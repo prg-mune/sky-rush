@@ -54,7 +54,10 @@ export type RoomState = {
   winnerId?: string;
   winningTeam?: number;
   startedAt?: number;
+  timeoutAt?: number;
+  timeLimitMs?: number;
   finishedAt?: number;
+  finishReason?: "allHumansFinished" | "timeout";
   serverTime: number;
   players: PlayerSnapshot[];
 };

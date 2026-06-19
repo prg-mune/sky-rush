@@ -62,6 +62,19 @@ const CPU_TARGET_PLAYERS = 20;
 const COUNTDOWN_MS = 4000;
 const DISCONNECTED_PLAYER_TTL_MS = 2 * 60 * 1000;
 const EMPTY_ROOM_TTL_MS = 30 * 1000;
+const STAGE_TIMEOUT_MS: Record<StageId, number> = {
+  battle_01_garden: 3 * 60 * 1000,
+  battle_02_breeze: 3 * 60 * 1000,
+  battle_03_cloud_jumble: 6 * 60 * 1000,
+  battle_04_sunset_bridge: 6 * 60 * 1000,
+  battle_05_wobble_highland: 6 * 60 * 1000,
+  battle_06_phantom_corridor: 6 * 60 * 1000,
+  battle_07_cup_qualifier: 6 * 60 * 1000,
+  battle_08_lightning_ridge: 10 * 60 * 1000,
+  battle_09_stratos_ladder: 10 * 60 * 1000,
+  battle_10_everest_rush: 10 * 60 * 1000,
+  team_01_skybase: 4 * 60 * 1000
+};
 
 function roomSnapshot(room: RoomRuntime): RoomState {
   return {
@@ -132,11 +145,42 @@ function broadcastRooms(io: SkyRushServer) {
   io.emit("rooms", [...rooms.values()].map(roomSummary));
 }
 
-function finishRoom(io: SkyRushServer, room: RoomRuntime, winner: PlayerRuntime) {
+function stageTimeoutMs(stageId: StageId) {
+  return STAGE_TIMEOUT_MS[stageId] ?? 6 * 60 * 1000;
+}
+
+function humanPlayers(room: RoomRuntime) {
+  return [...room.players.values()].filter((player) => !player.isCpu);
+}
+
+function roomWinner(room: RoomRuntime) {
+  return [...humanPlayers(room)].sort((a, b) => {
+    if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
+    if (a.finishedAt) return -1;
+    if (b.finishedAt) return 1;
+    return b.altitude - a.altitude;
+  })[0];
+}
+
+function checkRoomEnd(io: SkyRushServer, room: RoomRuntime) {
+  if (room.finishedAt || !room.startedAt) return;
+  const humans = humanPlayers(room);
+  if (humans.length > 0 && humans.every((player) => Boolean(player.finishedAt))) {
+    finishRoom(io, room, "allHumansFinished");
+    return;
+  }
+  if (room.timeoutAt && Date.now() >= room.timeoutAt) {
+    finishRoom(io, room, "timeout");
+  }
+}
+
+function finishRoom(io: SkyRushServer, room: RoomRuntime, reason: RoomState["finishReason"]) {
   if (room.finishedAt) return;
-  room.winnerId = winner.id;
-  room.winningTeam = winner.team;
+  const winner = roomWinner(room);
+  room.winnerId = winner?.id;
+  room.winningTeam = winner?.team;
   room.finishedAt = Date.now();
+  room.finishReason = reason;
   io.to(room.id).emit("gameEnded", { room: roomSnapshot(room), results: results(room) });
   broadcastRooms(io);
 }
@@ -151,6 +195,12 @@ function stepPhysics(io: SkyRushServer, dt: number) {
     }
     for (const player of room.players.values()) {
       if (!player.connected) continue;
+      if (player.finishedAt) {
+        player.vx = 0;
+        player.vy = 0;
+        player.jumping = false;
+        continue;
+      }
       if (player.isCpu) updateCpuInput(player, room);
 
       const input = player.input;
@@ -241,10 +291,14 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       player.altitude = Math.max(0, metrics.spawnY - player.y);
       if (player.y <= metrics.goalY && !player.finishedAt) {
         player.finishedAt = Date.now();
-        finishRoom(io, room, player);
+        player.y = metrics.goalY - stage.playerH;
+        player.vx = 0;
+        player.vy = 0;
+        player.jumping = false;
       }
     }
     resolvePlayerPushes(io, room);
+    checkRoomEnd(io, room);
     io.to(room.id).emit("gameState", roomSnapshot(room));
   }
 }
@@ -316,6 +370,8 @@ app.prepare().then(() => {
       addCpuPlayers(room, Math.min(room.maxPlayers, CPU_TARGET_PLAYERS) - room.players.size);
       room.started = true;
       room.startedAt = Date.now() + COUNTDOWN_MS;
+      room.timeLimitMs = stageTimeoutMs(room.stageId);
+      room.timeoutAt = room.startedAt + room.timeLimitMs;
       io.to(room.id).emit("gameStarted", roomSnapshot(room));
       broadcastRooms(io);
     });
@@ -520,7 +576,7 @@ function emitEffect(io: SkyRushServer, room: RoomRuntime, payload: EffectBurst) 
 }
 
 function resolvePlayerPushes(io: SkyRushServer, room: RoomRuntime) {
-  const players = [...room.players.values()].filter((player) => player.connected);
+  const players = [...room.players.values()].filter((player) => player.connected && !player.finishedAt);
   const now = Date.now();
   for (let pass = 0; pass < 3; pass += 1) {
     for (let i = 0; i < players.length; i += 1) {

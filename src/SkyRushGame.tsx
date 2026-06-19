@@ -6,17 +6,20 @@ import { currentPlatform as resolvePlatform, stageMetrics, stagePlatforms, type 
 type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
   room: RoomState;
+  spectatingPlayerId?: string;
 };
 
 type PlatformView = Platform & {
   visibility?: number;
 };
 
-export default function SkyRushGame({ socket, room }: Props) {
+export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef(room);
+  const spectatingPlayerIdRef = useRef(spectatingPlayerId);
   const serverClockOffsetRef = useRef(0);
   roomRef.current = room;
+  spectatingPlayerIdRef.current = spectatingPlayerId;
   serverClockOffsetRef.current = room.serverTime - Date.now();
 
   useEffect(() => {
@@ -62,7 +65,8 @@ export default function SkyRushGame({ socket, room }: Props) {
 
         update() {
           const me = roomRef.current.players.find((player) => player.id === socket.id);
-          if (me && this.cameraTarget) this.cameraTarget.setPosition(me.x, me.y);
+          const cameraPlayer = roomRef.current.players.find((player) => player.id === spectatingPlayerIdRef.current) ?? me;
+          if (cameraPlayer && this.cameraTarget) this.cameraTarget.setPosition(cameraPlayer.x, cameraPlayer.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
           updateAnimatedPlatforms(animatedPlatforms, Date.now() + serverClockOffsetRef.current);
           sendInput(performance.now());

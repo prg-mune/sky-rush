@@ -47,6 +47,7 @@ export default function Home() {
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [now, setNow] = useState(Date.now());
+  const [spectatingPlayerId, setSpectatingPlayerId] = useState<string | undefined>();
 
   useEffect(() => {
     const nextSocket: TypedSocket = io({ transports: ["websocket"] });
@@ -122,17 +123,37 @@ export default function Home() {
     () => room?.players.reduce((best, player) => (player.altitude > best.altitude ? player : best), room.players[0]),
     [room]
   );
+  const watchablePlayers = useMemo(
+    () => room?.players.filter((player) => player.connected && !player.finishedAt).sort((a, b) => b.altitude - a.altitude) ?? [],
+    [room]
+  );
+  const spectatingPlayer = useMemo(
+    () => room?.players.find((player) => player.id === spectatingPlayerId),
+    [room, spectatingPlayerId]
+  );
   const isOwner = Boolean(room && socket?.id === room.ownerId);
   const selectableStages = useMemo(() => stageOptions.filter((stage) => stage.mode === mode), [mode]);
   const countdownMs = Math.max(0, (room?.startedAt || 0) - now);
   const countdownLabel = countdownMs > 0 ? Math.ceil(countdownMs / 1000).toString() : "";
+  const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - now);
   const isLastSpurt = Boolean(me && room && me.altitude > stageClimbHeight(room.stageId) * 0.84 && !room.finishedAt);
+  const isSpectator = Boolean(me?.finishedAt && room && !room.finishedAt);
 
   useEffect(() => {
     if (!selectableStages.some((stage) => stage.id === stageId)) {
       setStageId(selectableStages[0]?.id ?? "battle_01_garden");
     }
   }, [selectableStages, stageId]);
+
+  useEffect(() => {
+    if (!isSpectator) {
+      setSpectatingPlayerId(undefined);
+      return;
+    }
+    if (!spectatingPlayerId || !watchablePlayers.some((player) => player.id === spectatingPlayerId)) {
+      setSpectatingPlayerId(watchablePlayers[0]?.id);
+    }
+  }, [isSpectator, spectatingPlayerId, watchablePlayers]);
 
   function login() {
     setNotice(null);
@@ -174,6 +195,13 @@ export default function Home() {
     setResults([]);
     setScreen("lobby");
     setNotice({ kind: "info", text: "ロビーへ戻りました" });
+  }
+
+  function shiftSpectatingPlayer(direction: number) {
+    if (watchablePlayers.length === 0) return;
+    const currentIndex = Math.max(0, watchablePlayers.findIndex((player) => player.id === spectatingPlayerId));
+    const nextIndex = (currentIndex + direction + watchablePlayers.length) % watchablePlayers.length;
+    setSpectatingPlayerId(watchablePlayers[nextIndex].id);
   }
 
   return (
@@ -372,6 +400,9 @@ export default function Home() {
       {screen === "game" && room && socket && (
         <section className={`gameWrap${isLastSpurt ? " lastSpurt" : ""}`}>
           <div className="hud left">順位 {socket.id ? rankOf(room, socket.id) : "-"} / {room.players.length} 位</div>
+          {room.timeoutAt && !countdownLabel && (
+            <div className="hud center">残り {formatTime(matchTimeLeftMs)}</div>
+          )}
           <div className="altitudeMap" aria-label="Altitude map">
             <div className="altitudeTrack">
               <span
@@ -398,7 +429,17 @@ export default function Home() {
           </div>
           {countdownLabel && <div className="countdown">{countdownLabel}</div>}
           {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">LAST SPURT</div>}
-          <SkyRushGame socket={socket} room={room} />
+          {isSpectator && (
+            <div className="spectatorPanel">
+              <strong>観戦中</strong>
+              <span>{spectatingPlayer ? `${spectatingPlayer.name} / ${Math.round(spectatingPlayer.altitude)}m` : "全員ゴール待ち"}</span>
+              <div>
+                <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(-1)}>前へ</button>
+                <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(1)}>次へ</button>
+              </div>
+            </div>
+          )}
+          <SkyRushGame socket={socket} room={room} spectatingPlayerId={spectatingPlayerId} />
         </section>
       )}
 
@@ -472,6 +513,13 @@ function noticeLabel(kind: NoticeKind) {
 function altitudeProgress(altitude: number, stageId: StageId) {
   const climbHeight = stageClimbHeight(stageId);
   return Math.max(0, Math.min(100, (altitude / climbHeight) * 100));
+}
+
+function formatTime(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function stageLabel(stageId: StageId) {
