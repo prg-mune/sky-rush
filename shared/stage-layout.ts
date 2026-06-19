@@ -352,6 +352,7 @@ export function stagePlatforms(mode: GameMode, stageId: StageId) {
   if (normalizedStageId === "battle_01_garden") return gardenPlatforms(selected.climbHeight);
   if (normalizedStageId === "battle_03_cloud_jumble") return cloudJumblePlatforms(selected.climbHeight);
   if (normalizedStageId === "battle_07_cup_qualifier") return cupQualifierPlatforms(selected.climbHeight);
+  if (normalizedStageId === "battle_10_everest_rush") return everestRushPlatforms(selected.climbHeight);
   const sourcePlatforms = mode === "team" ? selected.platforms.filter((platform) => ![1820, 1540, 1260].includes(platform.y)) : selected.platforms;
   const basePlatforms = buildStagePlatforms(sourcePlatforms, selected.climbHeight);
   if (mode !== "team") return basePlatforms;
@@ -504,6 +505,53 @@ function cupQualifierPlatforms(climbHeight: number) {
     { x: 930, y: 930, w: 290, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 600 },
     { x: 1180, y: 650, w: 310, h: 24, kind: "stretch", minW: 200, maxW: 350, periodMs: 3100, phaseMs: 1000 },
     { x: 850, y: 420, w: 300, h: 24 }
+  ];
+  return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
+}
+
+function everestRushPlatforms(climbHeight: number) {
+  const spawnY = stage.goalY + climbHeight;
+  const startY = spawnY + stage.playerH;
+  const metrics = { spawnY, goalY: stage.goalY };
+  const platforms: Platform[] = [
+    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+
+    { x: 270, y: 7890, w: 380, h: 24 },
+    { x: 900, y: 7890, w: 380, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1000, phaseMs: 300 },
+    { x: 1510, y: 7890, w: 340, h: 24 },
+
+    { x: 610, y: 7560, w: 320, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1100, phaseMs: 900 },
+    { x: 1240, y: 7560, w: 320, h: 24 },
+
+    { x: 980, y: 7230, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3300, phaseMs: 500 },
+    { x: 560, y: 6900, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1300 },
+    { x: 1040, y: 6570, w: 300, h: 24 },
+
+    { x: 1410, y: 6240, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 700 },
+    { x: 1010, y: 5910, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1100, phaseMs: 1600 },
+
+    { x: 1120, y: 5580, w: 280, h: 24, kind: "stretch", minW: 180, maxW: 340, periodMs: 3200, phaseMs: 1000 },
+    { x: 850, y: 5250, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1300, phaseMs: 400 },
+    { x: 1080, y: 4920, w: 280, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1100 },
+
+    { x: 910, y: 4590, w: 270, h: 24 },
+    { x: 590, y: 4260, w: 260, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1700 },
+    { x: 950, y: 3930, w: 270, h: 24, kind: "stretch", minW: 170, maxW: 330, periodMs: 3100, phaseMs: 600 },
+
+    { x: 780, y: 3600, w: 260, h: 24, kind: "vanish", visibleMs: 2100, hiddenMs: 1400, phaseMs: 200 },
+    { x: 1170, y: 3270, w: 260, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1000 },
+
+    { x: 900, y: 2940, w: 250, h: 24 },
+    { x: 640, y: 2610, w: 250, h: 24, kind: "vanish", visibleMs: 2100, hiddenMs: 1400, phaseMs: 1500 },
+    { x: 980, y: 2280, w: 250, h: 24, kind: "vanish", visibleMs: 2000, hiddenMs: 1400, phaseMs: 500 },
+
+    { x: 850, y: 1950, w: 240, h: 24, kind: "stretch", minW: 160, maxW: 300, periodMs: 3000, phaseMs: 1200 },
+    { x: 1120, y: 1620, w: 240, h: 24, kind: "vanish", visibleMs: 2000, hiddenMs: 1400, phaseMs: 900 },
+    { x: 820, y: 1290, w: 230, h: 24, kind: "vanish", visibleMs: 1900, hiddenMs: 1400, phaseMs: 300 },
+
+    { x: 1100, y: 960, w: 230, h: 24, kind: "vanish", visibleMs: 1900, hiddenMs: 1450, phaseMs: 1300 },
+    { x: 880, y: 650, w: 230, h: 24, kind: "stretch", minW: 150, maxW: 290, periodMs: 2800, phaseMs: 700 },
+    { x: 1040, y: 420, w: 240, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1100, phaseMs: 400 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }

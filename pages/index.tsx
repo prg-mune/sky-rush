@@ -21,7 +21,7 @@ type NoticeKind = "info" | "success" | "warning" | "error";
 type Notice = { kind: NoticeKind; text: string };
 type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
-const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "team_01_skybase"]);
+const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "battle_10_everest_rush", "team_01_skybase"]);
 
 const stageOptions: StageOption[] = [
   { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", climbHeight: 2000, description: "足場広めの基本コース" },
