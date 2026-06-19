@@ -210,6 +210,10 @@ input[type="range"] {
   accent-color: #f2b84b;
 }
 
+.passcodeInput {
+  -webkit-text-security: disc;
+}
+
 .fieldHint {
   color: #9eb4c4;
   font-size: 12px;

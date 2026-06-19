@@ -251,14 +251,16 @@ export default function Home() {
             />
           </label>
           <label>
-            パスワード
+            パスコード
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              type="password"
+              type="text"
               placeholder="progress4649"
-              autoComplete="new-password"
-              name="sky-rush-room-password"
+              autoComplete="one-time-code"
+              inputMode="text"
+              name="sky-rush-entry-code"
+              className="passcodeInput"
             />
           </label>
           <button className="primary" disabled={!isConnected || !playerName.trim() || !password} onClick={login}>入る</button>
