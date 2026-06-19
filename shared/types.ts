@@ -14,6 +14,7 @@ export type StageId =
 
 export type LoginSession = {
   playerName: string;
+  sessionId?: string;
 };
 
 export type RoomSummary = {
@@ -92,7 +93,7 @@ export type ServerToClientEvents = {
 };
 
 export type ClientToServerEvents = {
-  login: (payload: { playerName: string; password: string }, cb: (ok: boolean, message?: string) => void) => void;
+  login: (payload: { playerName: string; password: string; sessionId?: string }, cb: (ok: boolean, message?: string, sessionId?: string) => void) => void;
   listRooms: () => void;
   createRoom: (payload: { name: string; mode: GameMode; maxPlayers: number; stageId: StageId }) => void;
   joinRoom: (roomId: string) => void;

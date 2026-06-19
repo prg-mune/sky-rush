@@ -252,6 +252,11 @@ input[type="range"] {
   box-shadow: inset 3px 0 0 #f2b84b, 0 0 0 1px rgba(242, 184, 75, 0.28);
 }
 
+.playerCard.disconnected {
+  opacity: 0.58;
+  filter: grayscale(0.45);
+}
+
 .playerAvatar {
   position: relative;
   width: 30px;

@@ -25,10 +25,12 @@ import {
 type SocketData = {
   playerName?: string;
   roomId?: string;
+  sessionId?: string;
 };
 
 type PlayerRuntime = PlayerSnapshot & {
   socketId: string;
+  sessionId?: string;
   input: ClientInput;
   lastJumpRequestId: number;
   onGround: boolean;
@@ -39,6 +41,8 @@ type PlayerRuntime = PlayerSnapshot & {
   aiNextJumpAt?: number;
   aiSkill: number;
   lastPushEffectAt: number;
+  lastInputAt: number;
+  disconnectedAt?: number;
 };
 
 type RoomRuntime = Omit<RoomState, "players"> & {
@@ -56,12 +60,14 @@ const rooms = new Map<string, RoomRuntime>();
 
 const CPU_TARGET_PLAYERS = 20;
 const COUNTDOWN_MS = 4000;
+const DISCONNECTED_PLAYER_TTL_MS = 2 * 60 * 1000;
+const EMPTY_ROOM_TTL_MS = 30 * 1000;
 
 function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
     serverTime: Date.now(),
-    players: [...room.players.values()].map(({ input, onGround, standingOnPlayerId, wallTouch, socketId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, ...player }) => player)
+    players: [...room.players.values()].map(({ input, onGround, standingOnPlayerId, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => player)
   };
 }
 
@@ -94,10 +100,12 @@ function results(room: RoomRuntime): ResultRow[] {
     }));
 }
 
-function makePlayer(socketId: string, name: string, index: number, mode: GameMode, spawnY: number, isCpu = false, preferredTeam?: number): PlayerRuntime {
+function makePlayer(socketId: string, name: string, index: number, mode: GameMode, spawnY: number, isCpu = false, preferredTeam?: number, sessionId?: string): PlayerRuntime {
+  const now = Date.now();
   return {
     id: socketId,
     socketId,
+    sessionId,
     name,
     x: spawnXFor(index),
     y: spawnY,
@@ -115,7 +123,8 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     standingOnPlayerId: null,
     wallTouch: null,
     aiSkill: isCpu ? 0.72 + Math.random() * 0.26 : 1,
-    lastPushEffectAt: 0
+    lastPushEffectAt: 0,
+    lastInputAt: now
   };
 }
 
@@ -141,6 +150,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       continue;
     }
     for (const player of room.players.values()) {
+      if (!player.connected) continue;
       if (player.isCpu) updateCpuInput(player, room);
 
       const input = player.input;
@@ -205,6 +215,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
 
       for (const other of room.players.values()) {
         if (other.id === player.id) continue;
+        if (!other.connected) continue;
         const landingOnPlayer =
           player.vy > 0 &&
           player.x + stage.playerW > other.x &&
@@ -247,13 +258,15 @@ app.prepare().then(() => {
   });
 
   io.on("connection", (socket) => {
-    socket.on("login", ({ playerName, password }, cb) => {
+    socket.on("login", ({ playerName, password, sessionId }, cb) => {
       if (password !== PASSWORD) return cb(false, "パスワードが違います");
       const trimmed = playerName.trim().slice(0, 16);
       if (!trimmed) return cb(false, "プレイヤー名を入力してください");
       socket.data.playerName = trimmed;
-      cb(true);
+      socket.data.sessionId = sanitizeSessionId(sessionId) || createSessionId();
+      cb(true, undefined, socket.data.sessionId);
       socket.emit("rooms", [...rooms.values()].map(roomSummary));
+      reconnectPlayer(io, socket);
     });
 
     socket.on("listRooms", () => socket.emit("rooms", [...rooms.values()].map(roomSummary)));
@@ -280,10 +293,10 @@ app.prepare().then(() => {
 
     socket.on("joinRoom", (roomId) => {
       const room = rooms.get(roomId);
-      if (!room) return socket.emit("errorMessage", "驛ｨ螻九′隕九▽縺九ｊ縺ｾ縺帙ｓ");
       if (!room) return socket.emit("errorMessage", "部屋が見つかりません");
       if (room.players.size >= room.maxPlayers) return socket.emit("errorMessage", "部屋が満員です");
       if (room.started) return socket.emit("errorMessage", "開始済みの部屋です");
+      joinRoom(io, socket, room);
       broadcastRooms(io);
     });
 
@@ -310,15 +323,55 @@ app.prepare().then(() => {
     socket.on("input", (input) => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
       const player = room?.players.get(socket.id);
-      if (player && input.seq >= player.input.seq) player.input = input;
+      if (player && player.connected && input.seq >= player.input.seq) {
+        player.input = input;
+        player.lastInputAt = Date.now();
+      }
     });
 
     socket.on("disconnect", () => leaveRoom(io, socket, true));
   });
 
   setInterval(() => stepPhysics(io, 1 / 30), 1000 / 30);
+  setInterval(() => cleanupRooms(io), 10 * 1000);
   httpServer.listen(PORT, () => console.log(`Sky Rush listening on http://localhost:${PORT}`));
 });
+
+function createSessionId() {
+  return `sr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function sanitizeSessionId(sessionId?: string) {
+  if (!sessionId) return "";
+  const trimmed = sessionId.trim();
+  return /^[a-zA-Z0-9_-]{12,80}$/.test(trimmed) ? trimmed : "";
+}
+
+function reconnectPlayer(io: SkyRushServer, socket: SkyRushSocket) {
+  const sessionId = socket.data.sessionId;
+  if (!sessionId) return false;
+  for (const room of rooms.values()) {
+    const entry = [...room.players.entries()].find(([, player]) => !player.isCpu && !player.connected && player.sessionId === sessionId);
+    if (!entry) continue;
+    const [oldId, player] = entry;
+    room.players.delete(oldId);
+    player.id = socket.id;
+    player.socketId = socket.id;
+    player.name = socket.data.playerName || player.name;
+    player.connected = true;
+    player.disconnectedAt = undefined;
+    player.input = { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 };
+    player.lastInputAt = Date.now();
+    room.players.set(socket.id, player);
+    if (room.ownerId === oldId) room.ownerId = socket.id;
+    socket.join(room.id);
+    socket.data.roomId = room.id;
+    io.to(room.id).emit("roomState", roomSnapshot(room));
+    broadcastRooms(io);
+    return true;
+  }
+  return false;
+}
 
 function joinRoom(
   io: SkyRushServer,
@@ -328,7 +381,7 @@ function joinRoom(
   leaveRoom(io, socket);
   socket.join(room.id);
   socket.data.roomId = room.id;
-  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, stageMetrics(room.stageId).spawnY, false, nextHumanTeam(room)));
+  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, stageMetrics(room.stageId).spawnY, false, nextHumanTeam(room), socket.data.sessionId));
   io.to(room.id).emit("roomState", roomSnapshot(room));
 }
 
@@ -339,7 +392,11 @@ function leaveRoom(io: SkyRushServer, socket: Pick<SkyRushSocket, "id" | "data" 
   if (!room) return;
   if (disconnected && room.started && !room.finishedAt) {
     const player = room.players.get(socket.id);
-    if (player) player.connected = false;
+    if (player) {
+      player.connected = false;
+      player.disconnectedAt = Date.now();
+      player.input = { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: player.input.seq + 1, seq: player.input.seq + 1 };
+    }
   } else {
     room.players.delete(socket.id);
     socket.leave(roomId);
@@ -348,10 +405,41 @@ function leaveRoom(io: SkyRushServer, socket: Pick<SkyRushSocket, "id" | "data" 
   const humanPlayers = [...room.players.values()].filter((player) => !player.isCpu);
   if (humanPlayers.length === 0) rooms.delete(roomId);
   else {
-    if (room.ownerId === socket.id) room.ownerId = humanPlayers[0].id;
+    const connectedOwner = humanPlayers.find((player) => player.connected) ?? humanPlayers[0];
+    if (room.ownerId === socket.id || !room.players.get(room.ownerId)?.connected) room.ownerId = connectedOwner.id;
     io.to(room.id).emit("roomState", roomSnapshot(room));
   }
   broadcastRooms(io);
+}
+
+function cleanupRooms(io: SkyRushServer) {
+  const now = Date.now();
+  let changed = false;
+  for (const [roomId, room] of rooms.entries()) {
+    for (const [playerId, player] of room.players.entries()) {
+      if (player.isCpu || player.connected || !player.disconnectedAt) continue;
+      if (now - player.disconnectedAt > DISCONNECTED_PLAYER_TTL_MS) {
+        room.players.delete(playerId);
+        changed = true;
+      }
+    }
+
+    const humanPlayers = [...room.players.values()].filter((player) => !player.isCpu);
+    const connectedHumans = humanPlayers.filter((player) => player.connected);
+    if (humanPlayers.length === 0 || (connectedHumans.length === 0 && (!room.finishedAt || now - room.finishedAt > EMPTY_ROOM_TTL_MS))) {
+      rooms.delete(roomId);
+      changed = true;
+      continue;
+    }
+    if (!room.players.get(room.ownerId)?.connected) {
+      room.ownerId = connectedHumans[0]?.id ?? humanPlayers[0]?.id ?? room.ownerId;
+      changed = true;
+    }
+  }
+  if (changed) {
+    for (const room of rooms.values()) io.to(room.id).emit("roomState", roomSnapshot(room));
+    broadcastRooms(io);
+  }
 }
 
 function addCpuPlayers(room: RoomRuntime, count: number) {

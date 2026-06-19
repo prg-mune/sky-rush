@@ -17,6 +17,7 @@ const SkyRushGame = dynamic(() => import("../src/SkyRushGame"), { ssr: false });
 type Screen = "login" | "lobby" | "waiting" | "game" | "result";
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 type StageOption = { id: StageId; mode: GameMode; name: string; difficulty: string; climbHeight: number; description: string };
+const SESSION_STORAGE_KEY = "sky-rush-session-id";
 
 const stageOptions: StageOption[] = [
   { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", climbHeight: 2000, description: "足場広めの基本コース" },
@@ -41,6 +42,7 @@ export default function Home() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [message, setMessage] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
@@ -50,6 +52,8 @@ export default function Home() {
   useEffect(() => {
     const nextSocket: TypedSocket = io({ transports: ["websocket"] });
     setSocket(nextSocket);
+    nextSocket.on("connect", () => setIsConnected(true));
+    nextSocket.on("disconnect", () => setIsConnected(false));
     nextSocket.on("rooms", setRooms);
     nextSocket.on("roomState", (nextRoom) => {
       setRoom(nextRoom);
@@ -76,6 +80,21 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!socket || screen === "login" || !playerName || !password) return;
+    const reconnect = () => {
+      const sessionId = window.sessionStorage.getItem(SESSION_STORAGE_KEY) || undefined;
+      socket.emit("login", { playerName, password, sessionId }, (ok, _message, nextSessionId) => {
+        if (ok && nextSessionId) window.sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
+        socket.emit("listRooms");
+      });
+    };
+    socket.on("connect", reconnect);
+    return () => {
+      socket.off("connect", reconnect);
+    };
+  }, [socket, screen, playerName, password]);
+
   const me = useMemo(() => room?.players.find((player) => player.id === socket?.id), [room, socket?.id]);
   const leader = useMemo<PlayerSnapshot | undefined>(
     () => room?.players.reduce((best, player) => (player.altitude > best.altitude ? player : best), room.players[0]),
@@ -95,8 +114,10 @@ export default function Home() {
 
   function login() {
     setMessage("");
-    socket?.emit("login", { playerName, password }, (ok, nextMessage) => {
+    const sessionId = window.sessionStorage.getItem(SESSION_STORAGE_KEY) || undefined;
+    socket?.emit("login", { playerName, password, sessionId }, (ok, nextMessage, nextSessionId) => {
       if (ok) {
+        if (nextSessionId) window.sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
         setScreen("lobby");
         socket.emit("listRooms");
       } else {
@@ -127,6 +148,7 @@ export default function Home() {
         {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
       </header>
 
+      {!isConnected && <div className="toast">サーバーへ再接続しています...</div>}
       {message && <div className="toast">{message}</div>}
 
       {screen === "login" && (
@@ -236,7 +258,7 @@ export default function Home() {
             {room.players.map((player) => (
               <span
                 key={player.id}
-                className={`playerCard${player.id === socket?.id ? " me" : ""}`}
+                className={`playerCard${player.id === socket?.id ? " me" : ""}${player.connected ? "" : " disconnected"}`}
                 style={{ "--team-color": player.team ? teamCssColor(player.team) : player.isCpu ? "#9aa6b2" : "#ff6b6b" } as CSSProperties}
               >
                 <span className="playerAvatar" aria-hidden="true">
@@ -245,7 +267,7 @@ export default function Home() {
                 </span>
                 <span className="playerMeta">
                   <strong>{player.name}</strong>
-                  <small>{player.isCpu ? "CPU Racer" : "Player"}{player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
+                  <small>{player.isCpu ? "CPU Racer" : player.connected ? "Player" : "Offline"}{player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
                 </span>
               </span>
             ))}
