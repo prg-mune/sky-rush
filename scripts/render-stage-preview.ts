@@ -24,6 +24,17 @@ const previews: Array<{ id: StageId; title: string; note: string; bands: Array<{
       { altitude: 2910, label: "後半: ルート収束" },
       { altitude: 4230, label: "終盤: タイミング勝負" }
     ]
+  },
+  {
+    id: "battle_07_cup_qualifier",
+    title: "スカイラッシュ杯 予選",
+    note: "5000mの20人対戦向けコース。序盤は広く、中盤で合流し、終盤は1ルート寄りに収束します。",
+    bands: [
+      { altitude: 270, label: "序盤: 3ルートでばらける" },
+      { altitude: 1590, label: "中盤: 合流と押し合い" },
+      { altitude: 2910, label: "後半: 消える床と伸縮バー" },
+      { altitude: 4230, label: "終盤: 予選突破ルートへ収束" }
+    ]
   }
 ];
 
@@ -115,7 +126,7 @@ const html = `<!doctype html>
 <body>
   <header>
     <h1>Sky Rush コースプレビュー</h1>
-    <p>はじまりの空庭と雲間ジャンブル。黄色は消える床、紫は伸縮バーです。</p>
+    <p>はじまりの空庭、雲間ジャンブル、スカイラッシュ杯 予選。黄色は消える床、紫は伸縮バーです。</p>
   </header>
   ${svg}
 </body>
