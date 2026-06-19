@@ -46,6 +46,18 @@ const previews: Array<{
     ]
   },
   {
+    id: "battle_10_everest_rush",
+    mode: "battle",
+    title: "エベレスト・ラッシュ",
+    note: "8000mの超上級コース。短い消える床が中心で、最後まで集中力が必要です。",
+    bands: [
+      { altitude: 500, label: "序盤: 足場が細くなる" },
+      { altitude: 2500, label: "中盤: 消える床が主役" },
+      { altitude: 5200, label: "後半: リカバリー少なめ" },
+      { altitude: 7350, label: "終盤: エベレスト級の詰め" }
+    ]
+  },
+  {
     id: "team_01_skybase",
     mode: "team",
     title: "チーム・スカイベース",
@@ -147,7 +159,7 @@ const html = `<!doctype html>
 <body>
   <header>
     <h1>Sky Rush コースプレビュー</h1>
-    <p>バトル3コースとチーム登山1コース。黄色は消える床、紫は伸縮バーです。</p>
+    <p>バトル4コースとチーム登山1コース。黄色は消える床、紫は伸縮バーです。</p>
   </header>
   ${svg}
 </body>

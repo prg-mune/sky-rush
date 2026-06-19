@@ -21,18 +21,12 @@ type NoticeKind = "info" | "success" | "warning" | "error";
 type Notice = { kind: NoticeKind; text: string };
 type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
-const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "team_01_skybase"]);
+const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "battle_10_everest_rush", "team_01_skybase"]);
 
 const stageOptions: StageOption[] = [
   { id: "battle_01_garden", mode: "battle", name: "はじまりの空庭", difficulty: "初級", climbHeight: 2000, description: "足場広めの基本コース" },
-  { id: "battle_02_breeze", mode: "battle", name: "そよ風ステップ", difficulty: "初級", climbHeight: 2000, description: "少しだけ左右移動が増える" },
   { id: "battle_03_cloud_jumble", mode: "battle", name: "雲間ジャンブル", difficulty: "初中級", climbHeight: 5000, description: "足場が散って押し合いが起きやすい" },
-  { id: "battle_04_sunset_bridge", mode: "battle", name: "夕焼けブリッジ", difficulty: "初中級", climbHeight: 5000, description: "長い橋と短い消える床のミックス" },
-  { id: "battle_05_wobble_highland", mode: "battle", name: "ぐらつき高原", difficulty: "中級", climbHeight: 5000, description: "伸縮バー多め" },
-  { id: "battle_06_phantom_corridor", mode: "battle", name: "まぼろし回廊", difficulty: "中級", climbHeight: 5000, description: "消える床の練習向き" },
   { id: "battle_07_cup_qualifier", mode: "battle", name: "スカイラッシュ杯 予選", difficulty: "中上級", climbHeight: 5000, description: "20人対戦向けの混合コース" },
-  { id: "battle_08_lightning_ridge", mode: "battle", name: "稲妻リッジ", difficulty: "上級", climbHeight: 8000, description: "短い足場と消える床が多い" },
-  { id: "battle_09_stratos_ladder", mode: "battle", name: "成層圏ラダー", difficulty: "上級", climbHeight: 8000, description: "後半リカバリーが難しい" },
   { id: "battle_10_everest_rush", mode: "battle", name: "エベレスト・ラッシュ", difficulty: "超上級", climbHeight: 8000, description: "ほとんど消える床の最難関" },
   { id: "team_01_skybase", mode: "team", name: "チーム・スカイベース", difficulty: "初級", climbHeight: 2000, description: "味方踏み台と高壁の協力コース" }
 ];
