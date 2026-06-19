@@ -376,8 +376,8 @@ function gardenPlatforms(climbHeight: number) {
 
     { x: 1070, y: 950, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 390, periodMs: 3600, phaseMs: 700 },
 
-    { x: 820, y: 700, w: 300, h: 24 },
-    { x: 1130, y: 700, w: 300, h: 24 },
+    { x: 760, y: 700, w: 300, h: 24 },
+    { x: 1280, y: 700, w: 300, h: 24 },
     { x: 850, y: 420, w: 300, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
