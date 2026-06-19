@@ -348,6 +348,7 @@ function loosenStackedPlatforms(platforms: Platform[], metrics: { spawnY: number
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
   const normalizedStageId = normalizeStageId(mode, stageId);
   const selected = stageDefinitions[normalizedStageId];
+  if (normalizedStageId === "team_01_skybase") return teamSkybasePlatforms(selected.climbHeight);
   if (normalizedStageId === "battle_01_garden") return gardenPlatforms(selected.climbHeight);
   if (normalizedStageId === "battle_03_cloud_jumble") return cloudJumblePlatforms(selected.climbHeight);
   if (normalizedStageId === "battle_07_cup_qualifier") return cupQualifierPlatforms(selected.climbHeight);
@@ -381,6 +382,29 @@ function gardenPlatforms(climbHeight: number) {
     { x: 760, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 500 },
     { x: 1280, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 1500 },
     { x: 850, y: 420, w: 300, h: 24 }
+  ];
+  return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
+}
+
+function teamSkybasePlatforms(climbHeight: number) {
+  const spawnY = stage.goalY + climbHeight;
+  const startY = spawnY + stage.playerH;
+  const metrics = { spawnY, goalY: stage.goalY };
+  const platforms: Platform[] = [
+    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+
+    { x: 260, y: 1930, w: 440, h: 24 },
+    { x: 900, y: 1930, w: 440, h: 24 },
+    { x: 1510, y: 1930, w: 390, h: 24 },
+
+    { x: 520, y: 1650, w: 360, h: 24, kind: "vanish", visibleMs: 3300, hiddenMs: 900, phaseMs: 300 },
+    { x: 1260, y: 1650, w: 360, h: 24 },
+
+    { x: 930, y: 1180, w: 360, h: 28 },
+    { x: 1320, y: 900, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3400, phaseMs: 800 },
+    { x: 650, y: 900, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1000, phaseMs: 1400 },
+
+    { x: 950, y: 420, w: 340, h: 28 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
