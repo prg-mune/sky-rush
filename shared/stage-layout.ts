@@ -346,14 +346,31 @@ function loosenStackedPlatforms(platforms: Platform[], metrics: { spawnY: number
 }
 
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
-  const selected = stageDefinitions[normalizeStageId(mode, stageId)];
+  const normalizedStageId = normalizeStageId(mode, stageId);
+  const selected = stageDefinitions[normalizedStageId];
   const sourcePlatforms = mode === "team" ? selected.platforms.filter((platform) => ![1820, 1540, 1260].includes(platform.y)) : selected.platforms;
-  const basePlatforms = buildStagePlatforms(sourcePlatforms, selected.climbHeight);
+  const basePlatforms = addStageSpecificPlatforms(
+    buildStagePlatforms(sourcePlatforms, selected.climbHeight),
+    normalizedStageId,
+    selected.climbHeight
+  );
   if (mode !== "team") return basePlatforms;
   return [
     ...basePlatforms,
     ...buildStagePlatforms(selected.teamChallengePlatforms, selected.climbHeight, false)
   ].sort((a, b) => b.y - a.y);
+}
+
+function addStageSpecificPlatforms(platforms: Platform[], stageId: StageId, climbHeight: number) {
+  if (stageId !== "battle_01_garden") return platforms;
+  const spawnY = stage.goalY + climbHeight;
+  const startPlatform: Platform = {
+    x: stage.spawnX - 620,
+    y: spawnY + stage.playerH,
+    w: 1240,
+    h: 28
+  };
+  return [startPlatform, ...platforms].sort((a, b) => b.y - a.y);
 }
 
 export function currentPlatform(platform: Platform, now: number): Platform {
