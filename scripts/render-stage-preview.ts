@@ -1,10 +1,17 @@
 import { writeFileSync } from "fs";
-import type { StageId } from "../shared/types";
+import type { GameMode, StageId } from "../shared/types";
 import { stage, stageMetrics, stagePlatforms } from "../shared/stage-layout";
 
-const previews: Array<{ id: StageId; title: string; note: string; bands: Array<{ altitude: number; label: string }> }> = [
+const previews: Array<{
+  id: StageId;
+  mode: GameMode;
+  title: string;
+  note: string;
+  bands: Array<{ altitude: number; label: string }>;
+}> = [
   {
     id: "battle_01_garden",
+    mode: "battle",
     title: "はじまりの空庭",
     note: "昔の自然な散らばり感をベースにした初級コース。黄色は消える床、紫は伸縮バーです。",
     bands: [
@@ -16,6 +23,7 @@ const previews: Array<{ id: StageId; title: string; note: string; bands: Array<{
   },
   {
     id: "battle_03_cloud_jumble",
+    mode: "battle",
     title: "雲間ジャンブル",
     note: "5000mの中級コース。消える床を多めにしつつ、左右へ自然に散らばる配置です。",
     bands: [
@@ -27,6 +35,7 @@ const previews: Array<{ id: StageId; title: string; note: string; bands: Array<{
   },
   {
     id: "battle_07_cup_qualifier",
+    mode: "battle",
     title: "スカイラッシュ杯 予選",
     note: "5000mの20人対戦向けコース。序盤は広く、中盤で合流し、終盤は1ルート寄りに収束します。",
     bands: [
@@ -34,6 +43,18 @@ const previews: Array<{ id: StageId; title: string; note: string; bands: Array<{
       { altitude: 1590, label: "中盤: 合流と押し合い" },
       { altitude: 2910, label: "後半: 消える床と伸縮バー" },
       { altitude: 4230, label: "終盤: 予選突破ルートへ収束" }
+    ]
+  },
+  {
+    id: "team_01_skybase",
+    mode: "team",
+    title: "チーム・スカイベース",
+    note: "味方踏み台、高壁エリア、チーム協力ジャンプを使う初級チーム登山コースです。",
+    bands: [
+      { altitude: 260, label: "序盤: 全員でスタート" },
+      { altitude: 760, label: "協力: 味方踏み台" },
+      { altitude: 1220, label: "高壁: チームで突破" },
+      { altitude: 1690, label: "終盤: ゴールへ合流" }
     ]
   }
 ];
@@ -54,7 +75,7 @@ function platformColor(kind?: string) {
 
 function renderStage(preview: (typeof previews)[number], offsetY: number) {
   const metrics = stageMetrics(preview.id);
-  const platforms = stagePlatforms("battle", preview.id);
+  const platforms = stagePlatforms(preview.mode, preview.id);
   const localHeight = (metrics.spawnY + stage.playerH + 80 - stage.goalY) * scale + padding * 2;
 
   const sy = (y: number) => offsetY + padding + (y - stage.goalY) * scale;
@@ -126,7 +147,7 @@ const html = `<!doctype html>
 <body>
   <header>
     <h1>Sky Rush コースプレビュー</h1>
-    <p>はじまりの空庭、雲間ジャンブル、スカイラッシュ杯 予選。黄色は消える床、紫は伸縮バーです。</p>
+    <p>バトル3コースとチーム登山1コース。黄色は消える床、紫は伸縮バーです。</p>
   </header>
   ${svg}
 </body>
