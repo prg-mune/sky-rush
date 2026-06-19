@@ -238,12 +238,49 @@ export function buildStagePlatforms(platforms: Platform[], climbHeight: number, 
     expanded.push(fitPlatformToCourse({ ...platform, y, phaseMs: platform.phaseMs ?? 0 }, { spawnY, goalY: stage.goalY }));
   }
 
-  const connectors = buildVerticalConnectors(expanded, climbHeight, includeGoalApproach);
-  const safeRoute = includeGoalApproach ? buildSafeRoutePlatforms(climbHeight) : [];
+  const routePlatforms = condensePlatformRows(expanded, climbHeight);
+  const connectors = buildVerticalConnectors(routePlatforms, climbHeight, includeGoalApproach);
+  const metrics = { spawnY, goalY: stage.goalY };
   if (includeGoalApproach) {
-    expanded.push(...goalApproachPlatforms.map((platform) => fitPlatformToCourse(platform, { spawnY, goalY: stage.goalY })));
+    routePlatforms.push(...goalApproachPlatforms.map((platform) => fitPlatformToCourse(platform, metrics)));
   }
-  return [...expanded, ...connectors, ...safeRoute].sort((a, b) => b.y - a.y);
+  return loosenStackedPlatforms([...routePlatforms, ...connectors], metrics).sort((a, b) => b.y - a.y);
+}
+
+function condensePlatformRows(platforms: Platform[], climbHeight: number) {
+  const metrics = { spawnY: stage.goalY + climbHeight, goalY: stage.goalY };
+  const groups = new Map<number, Platform[]>();
+  for (const platform of platforms) {
+    const key = Math.round(platform.y);
+    groups.set(key, [...(groups.get(key) ?? []), platform]);
+  }
+  const sideRouteEvery = climbHeight <= stageHeights.beginner ? Number.POSITIVE_INFINITY : climbHeight <= stageHeights.intermediate ? 5 : 6;
+  const routeLanes = [900, 1160, 860, 1120];
+  return [...groups.entries()]
+    .sort(([a], [b]) => b - a)
+    .flatMap(([_, row], rowIndex) => {
+      const lane = routeLanes[rowIndex % routeLanes.length];
+      const sorted = [...row].sort((a, b) => Math.abs(platformCenter(a) - lane) - Math.abs(platformCenter(b) - lane));
+      const selected = [fitRoutePlatform(sorted[0], lane, climbHeight, metrics)];
+      const shouldKeepSideRoute = row.length > 1 && rowIndex % sideRouteEvery === sideRouteEvery - 1;
+      if (shouldKeepSideRoute) {
+        const side = sorted.find((platform) => Math.abs(platformCenter(platform) - lane) > 300);
+        if (side) selected.push(side);
+      }
+      return selected;
+    });
+}
+
+function fitRoutePlatform(platform: Platform, centerX: number, climbHeight: number, metrics: { spawnY: number; goalY: number }) {
+  const maxWidth = climbHeight <= stageHeights.beginner ? 330 : climbHeight <= stageHeights.intermediate ? 300 : 270;
+  const w = Math.min(platform.w, maxWidth);
+  return fitPlatformToCourse({
+    ...platform,
+    x: centerX - w / 2,
+    w,
+    minW: platform.minW ? Math.min(platform.minW, w) : platform.minW,
+    maxW: platform.maxW ? Math.min(platform.maxW, Math.max(w, maxWidth)) : platform.maxW
+  }, metrics);
 }
 
 function fitPlatformToCourse(platform: Platform, metrics: { spawnY: number; goalY: number }): Platform {
@@ -274,7 +311,7 @@ function buildVerticalConnectors(platforms: Platform[], climbHeight: number, inc
       if (includeGoalApproach && y > stage.goalY && y < stage.goalY + 520) continue;
       const ratio = Math.max(0, Math.min(1, (stage.goalY + climbHeight - y) / climbHeight));
       const lane = (index + step) % 3;
-      const centerX = lane === 0 ? 820 : lane === 1 ? 1100 : 1380;
+      const centerX = lane === 0 ? 900 : lane === 1 ? 1100 : 1260;
       const width = Math.max(210, 300 - ratio * 55);
       connectors.push(fitPlatformToCourse({
         x: centerX - width / 2,
@@ -291,28 +328,21 @@ function buildVerticalConnectors(platforms: Platform[], climbHeight: number, inc
   return connectors;
 }
 
-function buildSafeRoutePlatforms(climbHeight: number) {
-  const spawnY = stage.goalY + climbHeight;
-  const platforms: Platform[] = [];
-  const lanes = [760, 1180, 860, 1280];
-  const stepY = 280;
-  let y = spawnY - 260;
-  let laneIndex = 0;
-  while (y > stage.goalY + 680) {
-    const ratio = Math.max(0, Math.min(1, (spawnY - y) / climbHeight));
-    const width = Math.max(220, 280 - ratio * 38);
-    const centerX = lanes[laneIndex % lanes.length];
-    platforms.push(fitPlatformToCourse({
-      x: centerX - width / 2,
-      y,
-      w: width,
-      h: 22,
-      phaseMs: laneIndex * 170
-    }, { spawnY, goalY: stage.goalY }));
-    y -= stepY;
-    laneIndex += 1;
+function loosenStackedPlatforms(platforms: Platform[], metrics: { spawnY: number; goalY: number }) {
+  const sorted = [...platforms].sort((a, b) => b.y - a.y);
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const lower = sorted[index];
+    const upper = sorted[index + 1];
+    const rise = lower.y - upper.y;
+    if (rise <= 0 || rise > 340) continue;
+    if (exposedHorizontalGap(lower, upper) < Number.POSITIVE_INFINITY) continue;
+    const direction = index % 2 === 0 ? 1 : -1;
+    const shifted = fitPlatformToCourse({ ...upper, x: upper.x + direction * 110 }, metrics);
+    sorted[index + 1] = exposedHorizontalGap(lower, shifted) < Number.POSITIVE_INFINITY
+      ? shifted
+      : fitPlatformToCourse({ ...upper, x: upper.x - direction * 110 }, metrics);
   }
-  return platforms;
+  return sorted;
 }
 
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
@@ -389,6 +419,10 @@ export function checkStageLayouts() {
     if (clippedPlatforms.length > 0) {
       issues.push(`${stageId}: ${clippedPlatforms.length} platform(s) too narrow inside course bounds`);
     }
+    const denseWindow = densestWindow(platforms);
+    if (denseWindow.count > maxPlatformsPerWindow(definition.climbHeight, definition.mode)) {
+      issues.push(`${stageId}: too many platforms in one view (${denseWindow.count} near y=${Math.round(denseWindow.y)})`);
+    }
     const reachabilityIssue = checkReachability(stageId, definition.mode, platforms);
     if (reachabilityIssue) issues.push(reachabilityIssue);
   }
@@ -454,9 +488,9 @@ function exposedHorizontalGap(from: { x: number; w: number }, to: { x: number; w
   if (fromRight < toLeft) return toLeft - fromRight;
   if (toRight < fromLeft) return fromLeft - toRight;
 
-  const exposedLeft = toLeft - fromLeft;
-  const exposedRight = fromRight - toRight;
-  const safeTakeoffWidth = stage.playerW + 14;
+  const exposedLeft = Math.max(toLeft - fromLeft, fromLeft - toLeft);
+  const exposedRight = Math.max(fromRight - toRight, toRight - fromRight);
+  const safeTakeoffWidth = stage.playerW;
   const candidateGaps: number[] = [];
   if (exposedLeft >= safeTakeoffWidth) candidateGaps.push(0);
   if (exposedRight >= safeTakeoffWidth) candidateGaps.push(0);
@@ -464,8 +498,29 @@ function exposedHorizontalGap(from: { x: number; w: number }, to: { x: number; w
   return Number.POSITIVE_INFINITY;
 }
 
+function densestWindow(platforms: Platform[]) {
+  const windowHeight = 620;
+  let best = { count: 0, y: 0 };
+  for (const platform of platforms) {
+    const count = platforms.filter((candidate) => Math.abs(candidate.y - platform.y) <= windowHeight / 2).length;
+    if (count > best.count) best = { count, y: platform.y };
+  }
+  return best;
+}
+
+function maxPlatformsPerWindow(climbHeight: number, mode: GameMode) {
+  if (mode === "team") return 6;
+  if (climbHeight <= stageHeights.beginner) return 6;
+  if (climbHeight <= stageHeights.intermediate) return 5;
+  return 4;
+}
+
 function effectiveWidth(platform: Platform) {
   return platform.kind === "stretch" ? platform.minW ?? platform.w : platform.w;
+}
+
+function platformCenter(platform: Platform) {
+  return platform.x + platform.w / 2;
 }
 
 function effectiveX(platform: Platform, metrics: { spawnY: number; goalY: number }) {
