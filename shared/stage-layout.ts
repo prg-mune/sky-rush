@@ -348,12 +348,9 @@ function loosenStackedPlatforms(platforms: Platform[], metrics: { spawnY: number
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
   const normalizedStageId = normalizeStageId(mode, stageId);
   const selected = stageDefinitions[normalizedStageId];
+  if (normalizedStageId === "battle_01_garden") return gardenPlatforms(selected.climbHeight);
   const sourcePlatforms = mode === "team" ? selected.platforms.filter((platform) => ![1820, 1540, 1260].includes(platform.y)) : selected.platforms;
-  const basePlatforms = addStageSpecificPlatforms(
-    buildStagePlatforms(sourcePlatforms, selected.climbHeight),
-    normalizedStageId,
-    selected.climbHeight
-  );
+  const basePlatforms = buildStagePlatforms(sourcePlatforms, selected.climbHeight);
   if (mode !== "team") return basePlatforms;
   return [
     ...basePlatforms,
@@ -361,16 +358,34 @@ export function stagePlatforms(mode: GameMode, stageId: StageId) {
   ].sort((a, b) => b.y - a.y);
 }
 
-function addStageSpecificPlatforms(platforms: Platform[], stageId: StageId, climbHeight: number) {
-  if (stageId !== "battle_01_garden") return platforms;
+function gardenPlatforms(climbHeight: number) {
   const spawnY = stage.goalY + climbHeight;
-  const startPlatform: Platform = {
-    x: stage.spawnX - 620,
-    y: spawnY + stage.playerH,
-    w: 1240,
-    h: 28
-  };
-  return [startPlatform, ...platforms].sort((a, b) => b.y - a.y);
+  const startY = spawnY + stage.playerH;
+  const metrics = { spawnY, goalY: stage.goalY };
+  const platforms: Platform[] = [
+    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+
+    { x: 230, y: 1930, w: 260, h: 24 },
+    { x: 610, y: 1930, w: 280, h: 24 },
+    { x: 960, y: 1930, w: 280, h: 24, kind: "vanish", visibleMs: 3200, hiddenMs: 900, phaseMs: 300 },
+    { x: 1310, y: 1930, w: 280, h: 24 },
+    { x: 1690, y: 1930, w: 260, h: 24 },
+
+    { x: 500, y: 1580, w: 300, h: 24 },
+    { x: 950, y: 1580, w: 300, h: 24, kind: "stretch", minW: 220, maxW: 380, periodMs: 3600, phaseMs: 600 },
+    { x: 1400, y: 1580, w: 300, h: 24 },
+
+    { x: 560, y: 1230, w: 320, h: 24 },
+    { x: 940, y: 1230, w: 320, h: 24 },
+    { x: 1320, y: 1230, w: 320, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 1200 },
+
+    { x: 760, y: 930, w: 320, h: 24 },
+    { x: 1120, y: 930, w: 320, h: 24 },
+
+    { x: 930, y: 650, w: 360, h: 24 },
+    { x: 850, y: 420, w: 300, h: 24 }
+  ];
+  return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
 
 export function currentPlatform(platform: Platform, now: number): Platform {
