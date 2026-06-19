@@ -376,7 +376,6 @@ export default function Home() {
       {screen === "game" && room && socket && (
         <section className={`gameWrap${isLastSpurt ? " lastSpurt" : ""}`}>
           <div className="hud left">順位 {socket.id ? rankOf(room, socket.id) : "-"} / {room.players.length} 位</div>
-          <div className="hud right">高度 {Math.round(me?.altitude || 0)}m</div>
           <div className="altitudeMap" aria-label="Altitude map">
             <div className="altitudeTrack">
               <span

@@ -218,8 +218,8 @@ export function stageMetrics(stageId: StageId) {
 export function buildStagePlatforms(platforms: Platform[], climbHeight: number, includeGoalApproach = true) {
   const spawnY = stage.goalY + climbHeight;
   const goalApproachPlatforms: Platform[] = [
-    { x: 915, y: stage.goalY + 490, w: 370, h: 24 },
-    { x: 980, y: stage.goalY + 260, w: 260, h: 24 }
+    { x: 1220, y: stage.goalY + 490, w: 340, h: 24 },
+    { x: 860, y: stage.goalY + 260, w: 280, h: 24 }
   ];
   const allowedGoalApproachY = new Set(goalApproachPlatforms.map((platform) => platform.y));
   const goalClearanceBottom = stage.goalY + 520;
@@ -239,8 +239,11 @@ export function buildStagePlatforms(platforms: Platform[], climbHeight: number, 
   }
 
   const connectors = buildVerticalConnectors(expanded, climbHeight, includeGoalApproach);
-  if (includeGoalApproach) expanded.push(...goalApproachPlatforms);
-  return [...expanded, ...connectors].sort((a, b) => b.y - a.y);
+  const safeRoute = includeGoalApproach ? buildSafeRoutePlatforms(climbHeight) : [];
+  if (includeGoalApproach) {
+    expanded.push(...goalApproachPlatforms.map((platform) => fitPlatformToCourse(platform, { spawnY, goalY: stage.goalY })));
+  }
+  return [...expanded, ...connectors, ...safeRoute].sort((a, b) => b.y - a.y);
 }
 
 function fitPlatformToCourse(platform: Platform, metrics: { spawnY: number; goalY: number }): Platform {
@@ -286,6 +289,30 @@ function buildVerticalConnectors(platforms: Platform[], climbHeight: number, inc
     }
   }
   return connectors;
+}
+
+function buildSafeRoutePlatforms(climbHeight: number) {
+  const spawnY = stage.goalY + climbHeight;
+  const platforms: Platform[] = [];
+  const lanes = [760, 1180, 860, 1280];
+  const stepY = 280;
+  let y = spawnY - 260;
+  let laneIndex = 0;
+  while (y > stage.goalY + 680) {
+    const ratio = Math.max(0, Math.min(1, (spawnY - y) / climbHeight));
+    const width = Math.max(220, 280 - ratio * 38);
+    const centerX = lanes[laneIndex % lanes.length];
+    platforms.push(fitPlatformToCourse({
+      x: centerX - width / 2,
+      y,
+      w: width,
+      h: 22,
+      phaseMs: laneIndex * 170
+    }, { spawnY, goalY: stage.goalY }));
+    y -= stepY;
+    laneIndex += 1;
+  }
+  return platforms;
 }
 
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
@@ -370,8 +397,7 @@ export function checkStageLayouts() {
 
 function checkReachability(stageId: StageId, mode: GameMode, platforms: Platform[]) {
   const metrics = stageMetrics(stageId);
-  const maxRise = mode === "team" ? 460 : 370;
-  const maxHorizontalGap = mode === "team" ? 720 : 650;
+  const maxJumpPower = mode === "team" ? stage.jumpMax * 1.25 : stage.jumpMax;
   const nodes = [
     { label: "spawn", x: stage.spawnX - 580, y: metrics.spawnY + 110, w: 1160 },
     ...platforms.map((platform, index) => ({
@@ -392,7 +418,7 @@ function checkReachability(stageId: StageId, mode: GameMode, platforms: Platform
       if (!reachable.has(from)) continue;
       for (let to = 0; to < nodes.length; to += 1) {
         if (reachable.has(to)) continue;
-        if (canReach(nodes[from], nodes[to], maxRise, maxHorizontalGap)) {
+        if (canReach(nodes[from], nodes[to], maxJumpPower)) {
           reachable.add(to);
           changed = true;
         }
@@ -404,16 +430,38 @@ function checkReachability(stageId: StageId, mode: GameMode, platforms: Platform
   return `${stageId}: goal is not reachable by platform graph (highest reachable ${highest?.label ?? "none"})`;
 }
 
-function canReach(from: { x: number; y: number; w: number }, to: { x: number; y: number; w: number }, maxRise: number, maxHorizontalGap: number) {
+function canReach(from: { x: number; y: number; w: number }, to: { x: number; y: number; w: number }, jumpPower: number) {
   const rise = from.y - to.y;
-  if (rise <= 0 || rise > maxRise) return false;
-  return horizontalGap(from, to) <= maxHorizontalGap;
+  if (rise <= 0) return false;
+  const maxRise = (jumpPower * jumpPower) / (2 * stage.gravity);
+  if (rise > maxRise * 0.9) return false;
+  const travel = horizontalTravelForRise(rise, jumpPower) * 0.78;
+  return exposedHorizontalGap(from, to) <= travel;
 }
 
-function horizontalGap(a: { x: number; w: number }, b: { x: number; w: number }) {
-  if (a.x + a.w < b.x) return b.x - (a.x + a.w);
-  if (b.x + b.w < a.x) return a.x - (b.x + b.w);
-  return 0;
+function horizontalTravelForRise(rise: number, jumpPower: number) {
+  const discriminant = jumpPower * jumpPower - 2 * stage.gravity * rise;
+  if (discriminant <= 0) return 0;
+  const descendingTime = (jumpPower + Math.sqrt(discriminant)) / stage.gravity;
+  return stage.moveSpeed * descendingTime;
+}
+
+function exposedHorizontalGap(from: { x: number; w: number }, to: { x: number; w: number }) {
+  const fromLeft = from.x;
+  const fromRight = from.x + from.w;
+  const toLeft = to.x;
+  const toRight = to.x + to.w;
+  if (fromRight < toLeft) return toLeft - fromRight;
+  if (toRight < fromLeft) return fromLeft - toRight;
+
+  const exposedLeft = toLeft - fromLeft;
+  const exposedRight = fromRight - toRight;
+  const safeTakeoffWidth = stage.playerW + 14;
+  const candidateGaps: number[] = [];
+  if (exposedLeft >= safeTakeoffWidth) candidateGaps.push(0);
+  if (exposedRight >= safeTakeoffWidth) candidateGaps.push(0);
+  if (candidateGaps.length > 0) return 0;
+  return Number.POSITIVE_INFINITY;
 }
 
 function effectiveWidth(platform: Platform) {
