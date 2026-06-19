@@ -368,16 +368,13 @@ function gardenPlatforms(climbHeight: number) {
     { x: 260, y: 1935, w: 430, h: 24 },
     { x: 980, y: 1935, w: 430, h: 24, kind: "vanish", visibleMs: 3200, hiddenMs: 900, phaseMs: 200 },
 
-    { x: 640, y: 1690, w: 390, h: 24 },
-    { x: 1270, y: 1690, w: 390, h: 24 },
+    { x: 760, y: 1690, w: 360, h: 24 },
 
     { x: 390, y: 1440, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 900 },
     { x: 1040, y: 1440, w: 370, h: 24 },
     { x: 1500, y: 1190, w: 330, h: 24 },
-    { x: 710, y: 1190, w: 330, h: 24 },
 
-    { x: 500, y: 950, w: 320, h: 24 },
-    { x: 1070, y: 950, w: 330, h: 24, kind: "stretch", minW: 210, maxW: 410, periodMs: 3600, phaseMs: 700 },
+    { x: 1070, y: 950, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 390, periodMs: 3600, phaseMs: 700 },
 
     { x: 820, y: 700, w: 300, h: 24 },
     { x: 1130, y: 700, w: 300, h: 24 },
