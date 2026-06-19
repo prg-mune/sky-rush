@@ -393,18 +393,18 @@ function teamSkybasePlatforms(climbHeight: number) {
   const platforms: Platform[] = [
     { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
 
-    { x: 260, y: 1930, w: 440, h: 24 },
-    { x: 900, y: 1930, w: 440, h: 24 },
-    { x: 1510, y: 1930, w: 390, h: 24 },
+    { x: 260, y: 1930, w: 440, h: 24, kind: "stretch", minW: 280, maxW: 500, periodMs: 3600, phaseMs: 0 },
+    { x: 900, y: 1930, w: 440, h: 24, kind: "stretch", minW: 280, maxW: 500, periodMs: 3600, phaseMs: 800 },
+    { x: 1510, y: 1930, w: 390, h: 24, kind: "stretch", minW: 250, maxW: 450, periodMs: 3600, phaseMs: 1600 },
 
     { x: 520, y: 1650, w: 360, h: 24 },
     { x: 1260, y: 1650, w: 360, h: 24 },
 
-    { x: 930, y: 1180, w: 360, h: 28 },
+    { x: 930, y: 1180, w: 360, h: 28, kind: "stretch", minW: 240, maxW: 430, periodMs: 3400, phaseMs: 600 },
     { x: 1320, y: 900, w: 300, h: 24 },
     { x: 650, y: 900, w: 300, h: 24 },
 
-    { x: 950, y: 420, w: 340, h: 28 }
+    { x: 950, y: 420, w: 340, h: 28, kind: "vanish", visibleMs: 3000, hiddenMs: 900, phaseMs: 500 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
