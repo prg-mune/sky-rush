@@ -54,7 +54,7 @@ type Platform = {
   active?: boolean;
 };
 type PlatformSet = { platforms: Platform[]; teamChallengePlatforms: Platform[] };
-type StageDefinition = PlatformSet & { mode: GameMode };
+type StageDefinition = PlatformSet & { mode: GameMode; climbHeight: number };
 
 const PASSWORD = "progress4649";
 const PORT = Number(process.env.PORT || 3000);
@@ -65,16 +65,26 @@ const rooms = new Map<string, RoomRuntime>();
 
 const stage = {
   width: 2200,
-  height: 4200,
   goalY: 160,
   spawnX: 1100,
-  spawnY: 3950,
   gravity: 2100,
   moveSpeed: 360,
   jumpMin: 900,
   jumpMax: 1360,
   playerW: 34,
   playerH: 46
+};
+
+const baseCourse = {
+  goalY: 160,
+  spawnY: 3950,
+  climbHeight: 3790
+};
+
+const stageHeights = {
+  beginner: 2000,
+  intermediate: 5000,
+  advanced: 8000
 };
 
 const balancedPlatforms: Platform[] = [
@@ -113,11 +123,13 @@ const balancedTeamChallengePlatforms: Platform[] = [
 const stageDefinitions: Record<StageId, StageDefinition> = {
   battle_01_garden: {
     mode: "battle",
+    climbHeight: stageHeights.beginner,
     platforms: balancedPlatforms,
     teamChallengePlatforms: balancedTeamChallengePlatforms
   },
   battle_02_breeze: {
     mode: "battle",
+    climbHeight: stageHeights.beginner,
     platforms: balancedPlatforms.map((platform) => {
       if ([3500, 2940].includes(platform.y)) return { ...platform, w: platform.w * 0.9 };
       if ([3220, 2100].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2900, hiddenMs: 900, phaseMs: platform.x };
@@ -127,6 +139,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_03_cloud_jumble: {
     mode: "battle",
+    climbHeight: stageHeights.intermediate,
     platforms: [
       ...balancedPlatforms.map((platform) => {
         if ([3780, 3500, 3220, 2940, 2660].includes(platform.y)) return { ...platform, x: platform.x + (platform.x < stage.width / 2 ? -90 : 90), w: platform.w * 0.88 };
@@ -140,6 +153,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_04_sunset_bridge: {
     mode: "battle",
+    climbHeight: stageHeights.intermediate,
     platforms: balancedPlatforms.map((platform) => {
       if ([3780, 2940, 2100].includes(platform.y)) return { ...platform, w: platform.w * 1.18 };
       if ([3220, 2660, 1260].includes(platform.y)) return { ...platform, w: platform.w * 0.72, kind: "vanish" as const, visibleMs: 2600, hiddenMs: 1200, phaseMs: platform.x + platform.y };
@@ -149,6 +163,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_05_wobble_highland: {
     mode: "battle",
+    climbHeight: stageHeights.intermediate,
     platforms: balancedPlatforms.map((platform) => {
       if ([3780, 2940, 2100, 1540, 700].includes(platform.y)) {
         return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.42), maxW: platform.w * 1.28, periodMs: 2800 + platform.y, phaseMs: platform.x };
@@ -159,6 +174,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_06_phantom_corridor: {
     mode: "battle",
+    climbHeight: stageHeights.intermediate,
     platforms: balancedPlatforms.map((platform) => {
       if ([3500, 2940, 2380, 1540].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2200, hiddenMs: 1300, phaseMs: platform.x };
       return platform;
@@ -167,6 +183,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_07_cup_qualifier: {
     mode: "battle",
+    climbHeight: stageHeights.intermediate,
     platforms: balancedPlatforms.map((platform) => {
       if ([3780, 2660, 1260].includes(platform.y)) return { ...platform, kind: "vanish" as const, visibleMs: 2300, hiddenMs: 1200, phaseMs: platform.x };
       if ([2940, 1540, 700].includes(platform.y)) return { ...platform, kind: "stretch" as const, minW: Math.max(110, platform.w * 0.48), maxW: platform.w * 1.18, periodMs: 3100 + platform.y, phaseMs: platform.x };
@@ -176,6 +193,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_08_lightning_ridge: {
     mode: "battle",
+    climbHeight: stageHeights.advanced,
     platforms: balancedPlatforms.map((platform) => {
       const narrowed = [3780, 3500, 3220, 2940, 2660, 2380, 2100, 1540, 1260, 980, 700].includes(platform.y);
       const next = narrowed ? { ...platform, w: Math.max(190, platform.w * 0.7) } : platform;
@@ -186,6 +204,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_09_stratos_ladder: {
     mode: "battle",
+    climbHeight: stageHeights.advanced,
     platforms: [
       ...balancedPlatforms.map((platform) => {
         if ([3780, 3220, 2660, 2100, 1540, 980].includes(platform.y)) return { ...platform, w: Math.max(180, platform.w * 0.62), kind: "vanish" as const, visibleMs: 1900, hiddenMs: 1400, phaseMs: platform.y };
@@ -198,6 +217,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   battle_10_everest_rush: {
     mode: "battle",
+    climbHeight: stageHeights.advanced,
     platforms: [
       ...balancedPlatforms.map((platform) => {
         if (platform.y === 4060 || platform.y === 420) return platform;
@@ -210,6 +230,7 @@ const stageDefinitions: Record<StageId, StageDefinition> = {
   },
   team_01_skybase: {
     mode: "team",
+    climbHeight: stageHeights.beginner,
     platforms: balancedPlatforms.filter((platform) => ![1820, 1540, 1260, 980].includes(platform.y)),
     teamChallengePlatforms: [
       { x: 820, y: 1760, w: 520, h: 28, kind: "vanish" as const, visibleMs: 3300, hiddenMs: 1200, phaseMs: 500 },
@@ -260,13 +281,13 @@ function results(room: RoomRuntime): ResultRow[] {
     }));
 }
 
-function makePlayer(socketId: string, name: string, index: number, mode: GameMode, isCpu = false, preferredTeam?: number): PlayerRuntime {
+function makePlayer(socketId: string, name: string, index: number, mode: GameMode, spawnY: number, isCpu = false, preferredTeam?: number): PlayerRuntime {
   return {
     id: socketId,
     socketId,
     name,
     x: spawnXFor(index),
-    y: stage.spawnY,
+    y: spawnY,
     vx: 0,
     vy: 0,
     facing: "right",
@@ -301,6 +322,7 @@ function finishRoom(io: SkyRushServer, room: RoomRuntime, winner: PlayerRuntime)
 function stepPhysics(io: SkyRushServer, dt: number) {
   for (const room of rooms.values()) {
     if (!room.started || room.finishedAt) continue;
+    const metrics = stageMetrics(room.stageId);
     if (room.startedAt && Date.now() < room.startedAt) {
       io.to(room.id).emit("gameState", roomSnapshot(room));
       continue;
@@ -338,7 +360,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       player.onGround = false;
       player.standingOnPlayerId = null;
 
-      const bounds = courseBoundsAt(player.y);
+      const bounds = courseBoundsAt(player.y, metrics);
       if (player.x < bounds.left) {
         player.x = bounds.left;
         player.wallTouch = "left";
@@ -385,15 +407,15 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         }
       }
 
-      if (player.y > stage.spawnY + 460) {
+      if (player.y > metrics.spawnY + 460) {
         player.x = spawnXFor(Number(player.id.replace(/\D/g, "").slice(-2)) || 0);
-        player.y = stage.spawnY;
+        player.y = metrics.spawnY;
         player.vx = 0;
         player.vy = 0;
       }
 
-      player.altitude = Math.max(0, stage.spawnY - player.y);
-      if (player.y <= stage.goalY && !player.finishedAt) {
+      player.altitude = Math.max(0, metrics.spawnY - player.y);
+      if (player.y <= metrics.goalY && !player.finishedAt) {
         player.finishedAt = Date.now();
         finishRoom(io, room, player);
       }
@@ -492,7 +514,7 @@ function joinRoom(
   leaveRoom(io, socket);
   socket.join(room.id);
   socket.data.roomId = room.id;
-  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, false, nextHumanTeam(room)));
+  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, stageMetrics(room.stageId).spawnY, false, nextHumanTeam(room)));
   io.to(room.id).emit("roomState", roomSnapshot(room));
 }
 
@@ -523,7 +545,7 @@ function addCpuPlayers(room: RoomRuntime, count: number) {
   for (let i = 0; i < count && room.players.size < room.maxPlayers; i += 1) {
     const cpuNumber = [...room.players.values()].filter((player) => player.isCpu).length + 1;
     const id = `cpu-${roomForId}-${cpuNumber}`;
-    room.players.set(id, makePlayer(id, `CPU ${cpuNumber}`, room.players.size, room.mode, true));
+    room.players.set(id, makePlayer(id, `CPU ${cpuNumber}`, room.players.size, room.mode, stageMetrics(room.stageId).spawnY, true));
   }
 }
 
@@ -583,13 +605,40 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
 function activePlatforms(room: Pick<RoomRuntime, "mode" | "stageId">) {
   const set = stageDefinitions[normalizeStageId(room.mode, room.stageId)];
   const now = Date.now();
-  const current = set.platforms.map((platform) => currentPlatform(platform, now)).filter((platform) => platform.active !== false);
+  const sourcePlatforms = room.mode === "team" ? set.platforms.filter((platform) => ![1820, 1540, 1260].includes(platform.y)) : set.platforms;
+  const current = buildStagePlatforms(sourcePlatforms, set.climbHeight).map((platform) => currentPlatform(platform, now)).filter((platform) => platform.active !== false);
   if (room.mode !== "team") return current;
   return [
-    ...current.filter((platform) => platform.y !== 1820 && platform.y !== 1540 && platform.y !== 1260),
-    ...set.teamChallengePlatforms.map((platform) => currentPlatform(platform, now))
+    ...current,
+    ...buildStagePlatforms(set.teamChallengePlatforms, set.climbHeight, false).map((platform) => currentPlatform(platform, now))
       .filter((platform) => platform.active !== false)
   ].sort((a, b) => b.y - a.y);
+}
+
+function stageMetrics(stageId: StageId) {
+  const climbHeight = stageDefinitions[stageId]?.climbHeight ?? stageHeights.beginner;
+  return {
+    goalY: stage.goalY,
+    spawnY: stage.goalY + climbHeight,
+    climbHeight
+  };
+}
+
+function buildStagePlatforms(platforms: Platform[], climbHeight: number, includeGoalApproach = true) {
+  const spawnY = stage.goalY + climbHeight;
+  const expanded: Platform[] = [];
+  const cycles = Math.ceil((climbHeight + 420) / baseCourse.climbHeight);
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    for (const platform of platforms) {
+      const baseAltitude = baseCourse.spawnY - platform.y;
+      if (baseAltitude < -160) continue;
+      const altitude = baseAltitude + cycle * baseCourse.climbHeight;
+      if (altitude < -160 || altitude > climbHeight - 120) continue;
+      expanded.push({ ...platform, y: spawnY - altitude, phaseMs: (platform.phaseMs ?? 0) + cycle * 470 });
+    }
+  }
+  if (includeGoalApproach) expanded.push({ x: 980, y: stage.goalY + 260, w: 260, h: 24 });
+  return expanded.sort((a, b) => b.y - a.y);
 }
 
 function normalizeStageId(mode: GameMode, stageId: StageId): StageId {
@@ -632,8 +681,8 @@ function spawnXFor(index: number) {
   return stage.spawnX - 450 + col * 100 + (row % 2) * 50;
 }
 
-function courseBoundsAt(y: number) {
-  const climbRatio = Math.max(0, Math.min(1, (stage.spawnY - y) / (stage.spawnY - stage.goalY)));
+function courseBoundsAt(y: number, metrics: { spawnY: number; goalY: number }) {
+  const climbRatio = Math.max(0, Math.min(1, (metrics.spawnY - y) / (metrics.spawnY - metrics.goalY)));
   const width = 2050 - climbRatio * 1120;
   const center = stage.width / 2;
   return {
@@ -672,7 +721,7 @@ function resolvePlayerPushes(io: SkyRushServer, room: RoomRuntime) {
         }
 
         for (const player of [a, b]) {
-          const bounds = courseBoundsAt(player.y);
+          const bounds = courseBoundsAt(player.y, stageMetrics(room.stageId));
           player.x = Math.max(bounds.left, Math.min(bounds.right - stage.playerW, player.x));
         }
       }
