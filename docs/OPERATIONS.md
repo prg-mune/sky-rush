@@ -20,6 +20,8 @@ npm.cmd run build
 - `next build` が成功する
 - webpack cache の warning は、ビルド成功とは別扱いです
 
+20人CPU負荷テストは、ローカルサーバー起動後に「3. 20人CPU負荷テスト」の手順で実行します。
+
 ## 2. 本番相当のローカル確認
 
 ```powershell
@@ -45,9 +47,49 @@ http://localhost:3000
 - 通信断時の表示が出る
 - 結果画面へ遷移できる
 
-## 3. ECS 手動デプロイ
+## 3. 20人CPU負荷テスト
 
-### 3.1 前提確認
+本番相当のローカルサーバーを起動します。
+
+```powershell
+npm.cmd run build
+$env:NODE_ENV="production"
+npm.cmd start
+```
+
+別ターミナルで実行します。
+
+```powershell
+npm.cmd run test:cpu20
+```
+
+標準では以下の条件で実行します。
+
+- URL: `http://127.0.0.1:3000`
+- ステージ: `battle_10_everest_rush`
+- 時間: 120秒
+- 人数: 人間1人 + CPU19人
+
+任意設定:
+
+```powershell
+$env:SKY_RUSH_URL="http://127.0.0.1:3000"
+$env:SKY_RUSH_LOAD_TEST_MS="180000"
+$env:SKY_RUSH_STAGE_ID="battle_08_lightning_ridge"
+npm.cmd run test:cpu20
+```
+
+確認観点:
+
+- `Max players observed` が `20`
+- `CPU players` が `19`
+- `Game states` が継続して増えている
+- `Max state gap` が極端に大きくない
+- `Errors` が出ていない
+
+## 4. ECS 手動デプロイ
+
+### 4.1 前提確認
 
 Docker Desktop を起動してから確認します。
 
@@ -62,7 +104,7 @@ PowerShell のスクリプト実行ポリシーで止まる場合は、以下の
 powershell -ExecutionPolicy Bypass -File .\scripts\deploy-ecs.ps1
 ```
 
-### 3.2 デプロイ
+### 4.2 デプロイ
 
 標準設定:
 
@@ -83,7 +125,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-ecs.ps1 `
 
 完了後、CloudFormation の Outputs に表示されるURLへアクセスします。
 
-### 3.3 削除
+### 4.3 削除
 
 ECS / ALB / VPC / CloudWatch Logs などのスタックを削除します。
 
@@ -97,7 +139,7 @@ ECR も含めて削除する場合:
 powershell -ExecutionPolicy Bypass -File .\scripts\delete-ecs.ps1 -DeleteEcr
 ```
 
-## 4. CloudWatch Logs 確認観点
+## 5. CloudWatch Logs 確認観点
 
 ECS デプロイ後、CloudWatch Logs で以下を見ます。
 
@@ -106,7 +148,7 @@ ECS デプロイ後、CloudWatch Logs で以下を見ます。
 - Socket.IO 接続エラーが連続していない
 - タスクが再起動ループしていない
 
-## 5. よくあるトラブル
+## 6. よくあるトラブル
 
 ### npm が PowerShell で実行できない
 
@@ -155,14 +197,14 @@ npm.cmd run check:stages
 
 検査が通っていても手触りとして難しすぎる場合は、ステージ定義を調整します。
 
-## 6. v1.0 時点の制限事項
+## 7. v1.0 時点の制限事項
 
 - サーバーはメモリ上でルーム状態を管理します
 - ECS タスクを複数台に増やす場合、同じ部屋の参加者が別タスクに分かれないよう、スティッキーセッションまたは共有状態管理が必要です
 - パスワードは現在固定値です
 - GitHub Actions 自動デプロイは未整備です
 
-## 7. リリース作業メモ
+## 8. リリース作業メモ
 
 v1.0 化するときの目安:
 
@@ -174,4 +216,3 @@ v1.0 化するときの目安:
 6. 必要ならECSへ手動デプロイ
 7. `package.json` の version を `1.0.0` に更新
 8. Git tag / GitHub release を作成
-

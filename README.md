@@ -81,6 +81,38 @@ npm.cmd start
 http://localhost:3000
 ```
 
+## 20人CPU負荷テスト
+
+別ターミナルでサーバーを起動してから実行します。
+
+```powershell
+npm.cmd run build
+$env:NODE_ENV="production"
+npm.cmd start
+```
+
+テスト実行:
+
+```powershell
+npm.cmd run test:cpu20
+```
+
+任意設定:
+
+```powershell
+$env:SKY_RUSH_URL="http://127.0.0.1:3000"
+$env:SKY_RUSH_LOAD_TEST_MS="120000"
+$env:SKY_RUSH_STAGE_ID="battle_10_everest_rush"
+npm.cmd run test:cpu20
+```
+
+確認する値:
+
+- `Max players observed` が `20`
+- `CPU players` が `19`
+- `Max state gap` が極端に大きくない
+- エラーが出ない
+
 ## Docker 起動
 
 Docker Desktop を起動した状態で実行します。

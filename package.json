@@ -7,6 +7,7 @@
     "build": "next build && tsc -p tsconfig.server.json",
     "start": "node dist-server/server/index.js",
     "check:stages": "tsx scripts/check-stages.ts",
+    "test:cpu20": "tsx scripts/load-test-cpu20.ts",
     "typecheck": "tsc --noEmit",
     "lint": "next lint"
   },
