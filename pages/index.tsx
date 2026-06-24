@@ -438,7 +438,7 @@ export default function Home() {
               ))}
             </div>
           )}
-          {me && !me.isCpu && !room.started && (
+          {room.mode === "battle" && me && !me.isCpu && !room.started && (
             <div className="colorPicker" aria-label="プレイヤーカラー">
               {playerColors.map((color) => (
                 <button
