@@ -46,9 +46,10 @@ export default function Home() {
   const [roomName, setRoomName] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
-  const [maxPlayers, setMaxPlayers] = useState(20);
+  const [maxPlayers, setMaxPlayers] = useState(5);
   const [now, setNow] = useState(Date.now());
   const [spectatingPlayerId, setSpectatingPlayerId] = useState<string | undefined>();
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     const nextSocket: TypedSocket = io({ transports: ["websocket"] });
@@ -212,7 +213,10 @@ export default function Home() {
           <p className="eyebrow">Sky Rush v1.0</p>
           <h1>スカイラッシュ</h1>
         </div>
-        {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
+        <div className="topbarActions">
+          <button type="button" onClick={() => setShowRules(true)}>ルール</button>
+          {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
+        </div>
       </header>
 
       <div className="statusRail">
@@ -228,6 +232,46 @@ export default function Home() {
           <span>{notice.text}</span>
           <button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">x</button>
         </div>
+      )}
+
+      {showRules && (
+        <section className="rulesOverlay" role="dialog" aria-modal="true" aria-label="ルール">
+          <div className="rulesPanel">
+            <div className="panelHeader">
+              <div>
+                <p className="eyebrow">Rules</p>
+                <h2>遊び方</h2>
+              </div>
+              <button type="button" onClick={() => setShowRules(false)}>閉じる</button>
+            </div>
+            <div className="rulesGrid">
+              <article className="ruleCard">
+                <h3>基本操作</h3>
+                <p>左右キーまたはA/Dで移動。ジャンプはSpace、スマホはタップ/長押し。長くためるほど高く飛べます。</p>
+              </article>
+              <article className="ruleCard">
+                <h3>勝利条件</h3>
+                <p>コース上部のゴールを目指します。CPU以外の参加者が全員ゴールするか、制限時間になると結果発表です。</p>
+              </article>
+              <article className="ruleCard">
+                <h3>対戦</h3>
+                <p>ほかのプレイヤーとは押し合えます。ゴール後は鑑賞モードで、まだ登っている人の画面へ切り替えできます。</p>
+              </article>
+              <article className="ruleCard">
+                <h3>チーム登山</h3>
+                <p>同じチームの仲間は色が統一されます。味方の上に乗ってジャンプすると、協力エリアの高い壁を越えやすくなります。</p>
+              </article>
+              <article className="ruleCard">
+                <h3>足場の種類</h3>
+                <div className="barLegend">
+                  <span><i className="normal" />通常</span>
+                  <span><i className="stretch" />伸縮</span>
+                  <span><i className="vanish" />消える</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
       )}
 
       {screen === "login" && (
@@ -314,7 +358,7 @@ export default function Home() {
             </div>
             <label>
               最大人数 {maxPlayers}
-              <input type="range" min={2} max={50} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
+              <input type="range" min={2} max={20} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
             </label>
             <button className="primary" disabled={!isConnected || !enabledStageIds.has(stageId)} onClick={createRoom}>作成</button>
           </div>
@@ -394,6 +438,19 @@ export default function Home() {
               ))}
             </div>
           )}
+          {me && !me.isCpu && !room.started && (
+            <div className="colorPicker" aria-label="プレイヤーカラー">
+              {playerColors.map((color) => (
+                <button
+                  key={color}
+                  className={me.color === color ? "active" : ""}
+                  onClick={() => socket?.emit("setColor", color)}
+                  style={{ "--swatch-color": color } as CSSProperties}
+                  aria-label={`色 ${color}`}
+                />
+              ))}
+            </div>
+          )}
           <div className="actionBar">
             {isOwner ? <button className="primary" disabled={!isConnected} onClick={() => socket?.emit("startGame")}>開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
           </div>
@@ -440,19 +497,6 @@ export default function Home() {
                 <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(-1)}>前へ</button>
                 <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(1)}>次へ</button>
               </div>
-            </div>
-          )}
-          {me && !me.isCpu && !room.started && (
-            <div className="colorPicker" aria-label="プレイヤーカラー">
-              {playerColors.map((color) => (
-                <button
-                  key={color}
-                  className={me.color === color ? "active" : ""}
-                  onClick={() => socket?.emit("setColor", color)}
-                  style={{ "--swatch-color": color } as CSSProperties}
-                  aria-label={`色 ${color}`}
-                />
-              ))}
             </div>
           )}
           <SkyRushGame socket={socket} room={room} spectatingPlayerId={spectatingPlayerId} />

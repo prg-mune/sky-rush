@@ -336,7 +336,7 @@ app.prepare().then(() => {
         name: name.trim().slice(0, 24) || `${socket.data.playerName}の部屋`,
         mode,
         stageId: normalizedStageId,
-        maxPlayers: Math.max(2, Math.min(50, maxPlayers)),
+        maxPlayers: Math.max(2, Math.min(20, maxPlayers)),
         ownerId: socket.id,
         started: false,
         serverTime: Date.now(),

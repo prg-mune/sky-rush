@@ -71,6 +71,13 @@ button:disabled {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.topbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 h1,
 h2,
 p {
@@ -587,6 +594,97 @@ input[type="range"] {
   background: #3c1d22;
 }
 
+.rulesOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 12, 18, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.rulesPanel {
+  width: min(780px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid #5c9fc0;
+  border-radius: 8px;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(35, 88, 118, 0.98), rgba(14, 28, 40, 0.98)),
+    #102538;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.rulesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ruleCard {
+  min-height: 132px;
+  border: 1px solid rgba(159, 216, 255, 0.26);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(242, 184, 75, 0.1), transparent 42%),
+    rgba(10, 22, 32, 0.82);
+}
+
+.ruleCard h3 {
+  margin: 0 0 8px;
+  color: #ffd47a;
+  font-size: 16px;
+}
+
+.ruleCard p {
+  color: #d3e4ee;
+  font-size: 14px;
+  line-height: 1.58;
+}
+
+.barLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.barLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d8ecf7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.barLegend i {
+  display: inline-block;
+  width: 24px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 2px;
+}
+
+.barLegend .normal {
+  background: #75c79d;
+}
+
+.barLegend .stretch {
+  background: #a58bfa;
+}
+
+.barLegend .vanish {
+  background: #efc75e;
+}
+
 .gameWrap {
   position: relative;
   min-height: 680px;
@@ -851,6 +949,10 @@ tbody tr:nth-child(1) td {
     align-items: flex-start;
   }
 
+  .topbarActions {
+    justify-content: flex-start;
+  }
+
   h1 {
     font-size: 30px;
   }
@@ -888,6 +990,15 @@ tbody tr:nth-child(1) td {
 
   .stageOptions {
     grid-template-columns: 1fr;
+  }
+
+  .rulesOverlay {
+    padding: 12px;
+  }
+
+  .rulesPanel {
+    max-height: calc(100vh - 24px);
+    padding: 16px;
   }
 
   .altitudeMap {
