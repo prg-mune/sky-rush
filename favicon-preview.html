@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Rush favicon concepts</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0f1720;
+      color: #eef6fb;
+      font-family: Arial, "Yu Gothic", sans-serif;
+    }
+    main {
+      width: min(1100px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+    h1 { margin: 0 0 8px; font-size: 34px; }
+    p { margin: 0; color: #b7cfe0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .card {
+      border: 1px solid #345a72;
+      border-radius: 8px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(32, 77, 105, 0.9), rgba(18, 35, 48, 0.96));
+    }
+    .hero {
+      display: grid;
+      place-items: center;
+      height: 140px;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(125, 211, 252, 0.12), transparent 44%),
+        #102538;
+    }
+    .hero img { width: 96px; height: 96px; image-rendering: auto; }
+    .sizes {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .sizes span {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      background: rgba(8, 19, 30, 0.72);
+    }
+    .sizes img:nth-child(1) { width: 16px; height: 16px; }
+    .sizes img:nth-child(2) { width: 32px; height: 32px; }
+    h2 { margin: 0 0 8px; font-size: 18px; }
+    small { color: #9eb4c4; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sky Rush favicon concepts</h1>
+    <p>「空色リング + 赤プニ」方向の比較案。16px/32pxでも見えるかを重視しています。</p>
+    <section class="grid">
+      <article class="card">
+        <div class="hero"><img src="public/favicon-concepts/sky-ring-a.svg" alt="A"></div>
+        <div class="sizes"><span><img src="public/favicon-concepts/sky-ring-a.svg" alt=""></span><span><img src="public/favicon-concepts/sky-ring-a.svg" alt=""></span></div>
+        <h2>A. 王道プニラッシュ</h2>
+        <small>白リングとゼッケンあり。キャラ感が一番強い案。</small>
+      </article>
+      <article class="card">
+        <div class="hero"><img src="public/favicon-concepts/sky-ring-b.svg" alt="B"></div>
+        <div class="sizes"><span><img src="public/favicon-concepts/sky-ring-b.svg" alt=""></span><span><img src="public/favicon-concepts/sky-ring-b.svg" alt=""></span></div>
+        <h2>B. 太フチ視認性</h2>
+        <small>濃い外周でブラウザタブに埋もれにくい案。</small>
+      </article>
+      <article class="card">
+        <div class="hero"><img src="public/favicon-concepts/sky-ring-c.svg" alt="C"></div>
+        <div class="sizes"><span><img src="public/favicon-concepts/sky-ring-c.svg" alt=""></span><span><img src="public/favicon-concepts/sky-ring-c.svg" alt=""></span></div>
+        <h2>C. 雲リング</h2>
+        <small>空っぽさを強めた案。少しやわらかい印象。</small>
+      </article>
+      <article class="card">
+        <div class="hero"><img src="public/favicon-concepts/sky-ring-d.svg" alt="D"></div>
+        <div class="sizes"><span><img src="public/favicon-concepts/sky-ring-d.svg" alt=""></span><span><img src="public/favicon-concepts/sky-ring-d.svg" alt=""></span></div>
+        <h2>D. ゲームアイコン寄り</h2>
+        <small>白フチ強めでアプリアイコンっぽい案。</small>
+      </article>
+      <article class="card">
+        <div class="hero"><img src="public/favicon-concepts/sky-ring-e.svg" alt="E"></div>
+        <div class="sizes"><span><img src="public/favicon-concepts/sky-ring-e.svg" alt=""></span><span><img src="public/favicon-concepts/sky-ring-e.svg" alt=""></span></div>
+        <h2>E. 山シルエット入り</h2>
+        <small>登山感を少し足した案。情報量はやや多め。</small>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

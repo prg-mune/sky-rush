@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sky Rush favicon concept A">
+  <circle cx="32" cy="32" r="30" fill="#7dd3fc"/>
+  <circle cx="32" cy="32" r="25" fill="#e9fbff"/>
+  <circle cx="32" cy="35" r="19" fill="#ff6b6b"/>
+  <circle cx="40" cy="23" r="7" fill="#f06595"/>
+  <circle cx="24" cy="31" r="6" fill="#102538"/>
+  <circle cx="40" cy="31" r="6" fill="#102538"/>
+  <circle cx="26" cy="29" r="2" fill="#ffffff"/>
+  <circle cx="42" cy="29" r="2" fill="#ffffff"/>
+  <ellipse cx="21" cy="41" rx="4" ry="3" fill="#ffa8b6" opacity="0.75"/>
+  <ellipse cx="43" cy="41" rx="4" ry="3" fill="#ffa8b6" opacity="0.75"/>
+  <path d="M26 43c3 4 9 4 12 0" fill="none" stroke="#102538" stroke-width="3" stroke-linecap="round"/>
+  <rect x="25" y="45" width="14" height="10" rx="2" fill="#f8fbff" stroke="#102538" stroke-width="1.5"/>
+  <path d="M28 49h8M30 52h4" stroke="#102538" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
