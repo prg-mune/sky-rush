@@ -6,6 +6,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
+        <title>Sky Rush</title>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
       <Component {...pageProps} />
