@@ -211,7 +211,7 @@ export default function Home() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Sky Rush v1.0</p>
-          <h1>スカイラッシュ</h1>
+          <h1 className="titleLogo" aria-label="Sky Rush">SKY RUSH</h1>
         </div>
         <div className="topbarActions">
           <button type="button" onClick={() => setShowRules(true)}>ルール</button>

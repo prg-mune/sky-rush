@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Rush title logo concepts</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(64, 171, 214, 0.25), transparent 330px),
+        linear-gradient(90deg, rgba(242, 184, 75, 0.12), transparent 34%, rgba(255, 107, 107, 0.1)),
+        #0f1720;
+      color: #eef6fb;
+      font-family: Arial, "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+    header {
+      margin-bottom: 22px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      padding-bottom: 16px;
+    }
+    header p { margin: 0 0 6px; color: #9eb4c4; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    header h1 { margin: 0; font-size: 32px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      min-height: 230px;
+      border: 1px solid #345a72;
+      border-radius: 8px;
+      padding: 18px;
+      background:
+        linear-gradient(135deg, rgba(242, 184, 75, 0.08), transparent 46%),
+        linear-gradient(180deg, rgba(32, 77, 105, 0.88), rgba(18, 35, 48, 0.96));
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .sample {
+      display: grid;
+      place-items: center;
+      min-height: 132px;
+      margin-bottom: 14px;
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(98, 210, 255, 0.08), transparent),
+        #102538;
+      overflow: hidden;
+    }
+    .note h2 { margin: 0 0 6px; font-size: 18px; color: #ffffff; }
+    .note p { margin: 0; color: #b7cfe0; font-size: 13px; line-height: 1.5; }
+    .logo {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+    .mark {
+      position: relative;
+      flex: 0 0 auto;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #62d2ff;
+      box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.86);
+    }
+    .mark::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: 14px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ff6b6b;
+      box-shadow:
+        8px -9px 0 -4px #ff8fa3,
+        5px 5px 0 -7px #102538;
+    }
+    .logoA {
+      font-size: 48px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 0.02em;
+      text-shadow:
+        0 3px 0 #102538,
+        0 7px 18px rgba(0, 0, 0, 0.38);
+    }
+    .logoA .sky {
+      color: #ffffff;
+    }
+    .logoA .rush {
+      color: #ffd47a;
+      -webkit-text-stroke: 1.5px #102538;
+    }
+    .logoA2 {
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-size: 50px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+      transform: skewX(-7deg);
+      text-shadow:
+        0 3px 0 #102538,
+        0 6px 0 rgba(98, 210, 255, 0.9),
+        0 13px 22px rgba(0, 0, 0, 0.36);
+    }
+    .logoA2 .rush {
+      color: #ffd47a;
+      -webkit-text-stroke: 1px #102538;
+    }
+    .logoA3 {
+      font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+      font-size: 47px;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+      text-shadow:
+        0 3px 0 #102538,
+        0 8px 18px rgba(0, 0, 0, 0.34);
+    }
+    .logoA3 .rush {
+      color: #ff8fa3;
+      -webkit-text-stroke: 1.3px #ffffff;
+      text-shadow:
+        0 3px 0 #8d2f3a,
+        0 8px 18px rgba(0, 0, 0, 0.34);
+    }
+    .logoA4 {
+      font-family: "Arial Black", Arial, sans-serif;
+      font-size: 45px;
+      font-weight: 900;
+      letter-spacing: 0.09em;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow:
+        2px 0 0 #102538,
+        -2px 0 0 #102538,
+        0 3px 0 #102538,
+        0 10px 20px rgba(0, 0, 0, 0.32);
+    }
+    .logoA4 .rush {
+      color: #62d2ff;
+    }
+    .logoA5 {
+      font-family: "Trebuchet MS", Arial, sans-serif;
+      font-size: 46px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      text-shadow:
+        0 3px 0 #102538,
+        0 9px 20px rgba(0, 0, 0, 0.34);
+    }
+    .logoA5 .sky {
+      color: #62d2ff;
+      -webkit-text-stroke: 1px #ffffff;
+    }
+    .logoA5 .rush {
+      color: #ffd47a;
+      -webkit-text-stroke: 1.2px #102538;
+    }
+    .logoB {
+      font-size: 48px;
+      font-weight: 900;
+      color: #17202a;
+      letter-spacing: 0.04em;
+      padding: 12px 18px;
+      border: 3px solid #ffffff;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffe08a, #f2b84b);
+      box-shadow: 0 8px 0 #8d5b1c, 0 16px 26px rgba(0, 0, 0, 0.28);
+      transform: rotate(-1deg);
+    }
+    .logoB2 {
+      position: relative;
+      font-size: 48px;
+      font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+      font-weight: 900;
+      color: #102538;
+      letter-spacing: 0.06em;
+      padding: 12px 22px;
+      border: 3px solid #ffffff;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffe9a8, #f2b84b 68%, #d9942a);
+      box-shadow:
+        0 7px 0 #7b4817,
+        0 15px 28px rgba(0, 0, 0, 0.3),
+        inset 0 3px 0 rgba(255, 255, 255, 0.42);
+      transform: skewX(-8deg) rotate(-1deg);
+    }
+    .logoB2::before,
+    .logoB2::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 16px;
+      height: 24px;
+      background: #ff6b6b;
+      transform: translateY(-50%) skewX(8deg);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+    }
+    .logoB2::before { left: -11px; }
+    .logoB2::after { right: -11px; }
+    .logoB3 {
+      font-size: 47px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 0.04em;
+      padding: 12px 20px;
+      border: 3px solid #ffd47a;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.34), transparent 18%),
+        linear-gradient(90deg, #195e82, #244d70 46%, #7b3f66);
+      box-shadow:
+        inset 0 0 0 3px rgba(255, 255, 255, 0.15),
+        0 8px 0 #0b2233,
+        0 16px 28px rgba(0, 0, 0, 0.3);
+      text-shadow: 0 3px 0 #102538;
+    }
+    .logoB4 {
+      font-size: 46px;
+      font-family: "Arial Black", Arial, sans-serif;
+      font-weight: 900;
+      color: #102538;
+      letter-spacing: 0.08em;
+      padding: 11px 18px;
+      border: 3px solid #102538;
+      border-radius: 4px;
+      background:
+        linear-gradient(135deg, transparent 0 10%, rgba(255, 255, 255, 0.28) 10% 18%, transparent 18%),
+        #ffd47a;
+      box-shadow:
+        0 0 0 3px #ffffff,
+        0 8px 0 #62d2ff,
+        0 16px 28px rgba(0, 0, 0, 0.28);
+      transform: rotate(1deg);
+    }
+    .logoB5 {
+      display: inline-grid;
+      grid-template-columns: auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border: 3px solid #ffffff;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffe08a, #f2b84b);
+      box-shadow: 0 8px 0 #8d5b1c, 0 16px 26px rgba(0, 0, 0, 0.28);
+      transform: rotate(-1deg);
+    }
+    .logoB5 .miniMark {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #62d2ff;
+      box-shadow: inset 0 0 0 4px #ffffff;
+    }
+    .logoB5 .miniMark::before {
+      content: "";
+      position: absolute;
+      left: 9px;
+      top: 11px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ff6b6b;
+      box-shadow: 7px -8px 0 -4px #ff8fa3;
+    }
+    .logoB5 .text {
+      font-size: 44px;
+      font-weight: 900;
+      color: #17202a;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .logoC {
+      font-size: 46px;
+      font-weight: 900;
+      color: #eefcff;
+      letter-spacing: 0.03em;
+      text-shadow:
+        2px 0 0 #102538,
+        -2px 0 0 #102538,
+        0 2px 0 #102538,
+        0 8px 18px rgba(98, 210, 255, 0.22);
+    }
+    .logoC::after {
+      content: "";
+      position: absolute;
+      left: 52px;
+      right: 2px;
+      bottom: -10px;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #62d2ff, #ffd47a, #ff6b6b);
+    }
+    .logoD {
+      font-size: 48px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 0.04em;
+      text-shadow:
+        0 2px 0 #1d3557,
+        0 4px 0 #62d2ff,
+        0 10px 22px rgba(0, 0, 0, 0.36);
+    }
+    .logoD .rush {
+      color: #ff6b6b;
+      -webkit-text-stroke: 1.2px #ffffff;
+      text-shadow: 0 3px 0 #8d2f3a, 0 10px 22px rgba(0, 0, 0, 0.36);
+    }
+    .logoE {
+      display: grid;
+      gap: 2px;
+      text-align: center;
+      font-weight: 900;
+      color: #ffffff;
+    }
+    .logoE .tag {
+      font-size: 12px;
+      color: #62d2ff;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .logoE .en {
+      font-size: 46px;
+      padding: 8px 16px 10px;
+      border-top: 3px solid #62d2ff;
+      border-bottom: 3px solid #ffd47a;
+      letter-spacing: 0.08em;
+      text-shadow: 0 3px 0 #102538, 0 10px 22px rgba(0, 0, 0, 0.32);
+    }
+    .logoF {
+      font-size: 46px;
+      font-weight: 900;
+      padding: 10px 16px;
+      color: #ffffff;
+      letter-spacing: 0.04em;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 18% 26%, rgba(255, 255, 255, 0.3), transparent 20%),
+        linear-gradient(90deg, #1f7a9d, #244d70 54%, #8d3f59);
+      box-shadow:
+        inset 0 0 0 3px rgba(255, 255, 255, 0.18),
+        0 10px 24px rgba(0, 0, 0, 0.28);
+      text-shadow: 0 3px 0 #102538;
+    }
+    .logoG {
+      position: relative;
+      display: inline-grid;
+      gap: 3px;
+      padding-left: 14px;
+      font-weight: 900;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 3px 0 #102538, 0 10px 22px rgba(0, 0, 0, 0.34);
+    }
+    .logoG::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 8px;
+      width: 6px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #62d2ff, #ffd47a, #ff6b6b);
+    }
+    .logoG .sky {
+      font-size: 22px;
+      letter-spacing: 0.26em;
+      color: #62d2ff;
+    }
+    .logoG .rush {
+      font-size: 52px;
+      letter-spacing: 0.02em;
+    }
+    @media (max-width: 520px) {
+      .grid { grid-template-columns: 1fr; }
+      .logoA, .logoA2, .logoA3, .logoA4, .logoA5, .logoB, .logoB2, .logoB3, .logoB4, .logoC, .logoD, .logoF { font-size: 34px; }
+      .logoB5 .text { font-size: 32px; }
+      .logoE .en { font-size: 34px; }
+      .logoG .rush { font-size: 38px; }
+      .mark { width: 34px; height: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p>Sky Rush logo concepts</p>
+      <h1>SKY RUSH ロゴ CSS案</h1>
+    </header>
+    <section class="grid">
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoA"><span class="mark"></span><span class="sky">SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>A1. プニ印つき王道ロゴ</h2><p>faviconのプニ印を横に置く案。ゲームの顔が残るので一番ブランド化しやすい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoA2"><span class="mark"></span><span>SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>A2. 斜体スポーツ太字</h2><p>Impact系で横幅を締めた案。スピード感と大会感が強い。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoA3"><span class="mark"></span><span>SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>A3. 丸めポップ</h2><p>プニラッシュのかわいさ寄り。キャラ感は強いけど、少しカジュアル。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoA4"><span class="mark"></span><span>SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>A4. 青白アウトライン</h2><p>空っぽさを強めた案。ヘッダー上で視認性が高い。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoA5"><span class="mark"></span><span class="sky">SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>A5. 空色ミックス</h2><p>SKYを空色、RUSHを黄色に分ける案。今のUIカラーと合わせやすい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoB">SKY RUSH</div>
+        </div>
+        <div class="note"><h2>B1. 大会バッジ</h2><p>黄色プレートで大会感を強めた案。開始画面の主役ロゴとして映えやすい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoB2">SKY RUSH</div>
+        </div>
+        <div class="note"><h2>B2. 斜めリボンバッジ</h2><p>スポーツ大会の看板っぽい案。勢いと強さは一番出ます。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoB3">SKY RUSH</div>
+        </div>
+        <div class="note"><h2>B3. ナイトカプセル</h2><p>夜空背景に馴染む濃色バッジ。黄色より少し大人っぽい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoB4">SKY RUSH</div>
+        </div>
+        <div class="note"><h2>B4. アーケードプレート</h2><p>白フチと水色影でレトロゲーム感を足した案。視認性が高い。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoB5"><span class="miniMark"></span><span class="text">SKY RUSH</span></div>
+        </div>
+        <div class="note"><h2>B5. プニ入りバッジ</h2><p>Bの形にfaviconの顔を合体。かわいさと大会感の折衷案。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoC"><span class="mark"></span><span>SKY RUSH</span></div>
+        </div>
+        <div class="note"><h2>C. スピードライン</h2><p>下線でラッシュ感を足す案。ヘッダーに置いても横幅を取りすぎない。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logo logoD"><span>SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>D. 英字スポーツロゴ</h2><p>スカイスポーツ大会っぽい案。日本語UIの中でアクセントになりやすい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoE"><span class="tag">Climb Battle</span><span class="en">SKY RUSH</span></div>
+        </div>
+        <div class="note"><h2>E. 競技タイトル風</h2><p>サブタイトル付きでスポーツイベント感を出す案。トップ画面向け。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoF">SKY RUSH</div>
+        </div>
+        <div class="note"><h2>F. カプセルロゴ</h2><p>小さめヘッダーでもまとまりやすい案。UI部品として扱いやすい。</p></div>
+      </article>
+      <article class="card">
+        <div class="sample">
+          <div class="logoG"><span class="sky">SKY</span><span class="rush">RUSH</span></div>
+        </div>
+        <div class="note"><h2>G. 縦積みアスリート</h2><p>RUSHを強く見せる案。画面上部より、開始画面のロゴに向いています。</p></div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
