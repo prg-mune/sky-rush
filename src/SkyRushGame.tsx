@@ -13,6 +13,15 @@ type PlatformView = Platform & {
   visibility?: number;
 };
 
+type PlayerMotionFx = {
+  previousVy: number;
+  previousJumping: boolean;
+  launchAt?: number;
+  landAt?: number;
+  pushAt?: number;
+  pushDirection: -1 | 1;
+};
+
 export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef(room);
@@ -32,6 +41,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
 
       const playerSprites = new Map<string, Phaser.GameObjects.Group>();
       const nameLabels = new Map<string, Phaser.GameObjects.Text>();
+      const playerMotionFx = new Map<string, PlayerMotionFx>();
       const animatedPlatforms: Array<{ platform: PlatformView; body: Phaser.GameObjects.Rectangle; cap?: Phaser.GameObjects.Rectangle }> = [];
       const keys = { left: false, right: false, jump: false };
       const touchInput = { pointerId: -1, startX: 0 };
@@ -46,6 +56,8 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
 
       class MainScene extends Phaser.Scene {
         private cameraTarget?: Phaser.GameObjects.Rectangle;
+        private chargeGauge?: Phaser.GameObjects.Graphics;
+        private chargeMaxLabel?: Phaser.GameObjects.Text;
 
         create() {
           const metrics = stageMetrics(roomRef.current.stageId);
@@ -55,6 +67,15 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
           this.world();
           this.cameraTarget = this.add.rectangle(1100, metrics.spawnY, 1, 1).setVisible(false);
           this.cameras.main.startFollow(this.cameraTarget, true, 0.12, 0.16);
+          this.chargeGauge = this.add.graphics().setDepth(120);
+          this.chargeMaxLabel = this.add.text(0, 0, "MAX", {
+            fontFamily: "Arial",
+            fontSize: "10px",
+            color: "#fff6bf",
+            stroke: "#102538",
+            strokeThickness: 3,
+            fontStyle: "bold"
+          }).setOrigin(0.5).setDepth(121).setVisible(false);
           window.addEventListener("keydown", onKeyDown);
           window.addEventListener("keyup", onKeyUp);
           hostRef.current?.addEventListener("pointerdown", onPointerDown);
@@ -64,11 +85,22 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
         }
 
         update() {
+          const frameNow = Date.now();
+          const serverNow = frameNow + serverClockOffsetRef.current;
+          const chargeRatio = currentChargeRatio();
           const me = roomRef.current.players.find((player) => player.id === socket.id);
           const cameraPlayer = roomRef.current.players.find((player) => player.id === spectatingPlayerIdRef.current) ?? me;
           if (cameraPlayer && this.cameraTarget) this.cameraTarget.setPosition(cameraPlayer.x, cameraPlayer.y);
-          syncSprites(this, Phaser, playerSprites, nameLabels, roomRef.current);
-          updateAnimatedPlatforms(animatedPlatforms, Date.now() + serverClockOffsetRef.current);
+          syncSprites(this, Phaser, playerSprites, nameLabels, playerMotionFx, roomRef.current, socket.id, chargeRatio, frameNow);
+          updateChargeGauge(
+            this.chargeGauge,
+            this.chargeMaxLabel,
+            me,
+            chargeRatio,
+            serverNow,
+            roomRef.current.startedAt
+          );
+          updateAnimatedPlatforms(animatedPlatforms, serverNow);
           sendInput(performance.now());
         }
 
@@ -180,6 +212,11 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
         };
       }
 
+      function currentChargeRatio() {
+        if (!keys.jump) return 0;
+        return Math.min(1, Math.max(0, (performance.now() - jumpStarted) / 650));
+      }
+
       function inputSignature() {
         return `${Number(keys.left)}:${Number(keys.right)}:${Number(keys.jump)}:${jumpRequestId}:${Math.round((keys.jump ? performance.now() - jumpStarted : jumpHeldMs) / 50)}`;
       }
@@ -201,6 +238,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
 
       function onEffectBurst(effect: EffectBurst) {
         if (!activeScene) return;
+        if (effect.kind === "push") markPushedPlayers(roomRef.current, playerMotionFx, effect, Date.now());
         spawnEffect(activeScene, Phaser, effect);
       }
 
@@ -233,7 +271,11 @@ function syncSprites(
   Phaser: typeof import("phaser"),
   groups: Map<string, import("phaser").GameObjects.Group>,
   labels: Map<string, import("phaser").GameObjects.Text>,
-  room: RoomState
+  motionFxByPlayer: Map<string, PlayerMotionFx>,
+  room: RoomState,
+  localPlayerId: string | undefined,
+  localChargeRatio: number,
+  now: number
 ) {
   const active = new Set(room.players.map((player) => player.id));
   for (const player of room.players) {
@@ -251,7 +293,18 @@ function syncSprites(
       groups.set(player.id, group);
       labels.set(player.id, label);
     }
-    updatePlayerSprite(group, player);
+    let motionFx = motionFxByPlayer.get(player.id);
+    if (!motionFx) {
+      motionFx = { previousVy: player.vy, previousJumping: player.jumping, pushDirection: 1 };
+      motionFxByPlayer.set(player.id, motionFx);
+    }
+    if (player.jumping && !motionFx.previousJumping && player.vy < 0) motionFx.launchAt = now;
+    if (motionFx.previousVy > 120 && Math.abs(player.vy) < 1 && !player.jumping) motionFx.landAt = now;
+    motionFx.previousVy = player.vy;
+    motionFx.previousJumping = player.jumping;
+
+    const chargeRatio = player.id === localPlayerId && !player.jumping ? localChargeRatio : 0;
+    updatePlayerSprite(group, player, motionFx, chargeRatio, now);
     label?.setPosition(player.x - 18, player.y - 34).setAlpha(player.connected ? 1 : 0.35);
   }
   for (const [id, group] of groups) {
@@ -260,7 +313,85 @@ function syncSprites(
       groups.delete(id);
       labels.get(id)?.destroy();
       labels.delete(id);
+      motionFxByPlayer.delete(id);
     }
+  }
+}
+
+function markPushedPlayers(
+  room: RoomState,
+  motionFxByPlayer: Map<string, PlayerMotionFx>,
+  effect: EffectBurst,
+  now: number
+) {
+  const nearby = room.players
+    .filter((player) => player.connected && !player.finishedAt)
+    .map((player) => {
+      const centerX = player.x + 17;
+      const centerY = player.y + 23;
+      return { player, centerX, distance: Math.hypot(centerX - effect.x, centerY - effect.y) };
+    })
+    .filter((entry) => entry.distance < 90)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 2);
+
+  for (const entry of nearby) {
+    const current = motionFxByPlayer.get(entry.player.id) ?? {
+      previousVy: entry.player.vy,
+      previousJumping: entry.player.jumping,
+      pushDirection: 1 as const
+    };
+    current.pushAt = now;
+    current.pushDirection = entry.centerX < effect.x ? -1 : 1;
+    motionFxByPlayer.set(entry.player.id, current);
+  }
+}
+
+function updateChargeGauge(
+  gauge: import("phaser").GameObjects.Graphics | undefined,
+  maxLabel: import("phaser").GameObjects.Text | undefined,
+  player: RoomState["players"][number] | undefined,
+  ratio: number,
+  serverNow: number,
+  startedAt?: number
+) {
+  if (!gauge || !maxLabel) return;
+  gauge.clear();
+
+  const canCharge = Boolean(
+    player &&
+    player.connected &&
+    !player.finishedAt &&
+    !player.jumping &&
+    (!startedAt || serverNow >= startedAt) &&
+    ratio > 0
+  );
+  if (!canCharge || !player) {
+    gauge.setVisible(false);
+    maxLabel.setVisible(false);
+    return;
+  }
+
+  const centerX = player.x + 17;
+  const gaugeY = player.y + 53;
+  const gaugeWidth = 48;
+  const fillWidth = Math.max(4, gaugeWidth * ratio);
+  const isMax = ratio >= 1;
+  const fillColor = isMax ? 0xffd166 : ratio >= 0.55 ? 0xa9e66e : 0x68d8f0;
+
+  gauge.setVisible(true);
+  gauge.fillStyle(0x061522, 0.78);
+  gauge.fillRoundedRect(centerX - gaugeWidth / 2 - 2, gaugeY - 2, gaugeWidth + 4, 10, 5);
+  gauge.fillStyle(fillColor, 1);
+  gauge.fillRoundedRect(centerX - gaugeWidth / 2, gaugeY, fillWidth, 6, 3);
+
+  if (isMax) {
+    const pulse = 0.58 + Math.sin(serverNow / 85) * 0.2;
+    gauge.lineStyle(3, 0xffe69a, pulse);
+    gauge.strokeCircle(centerX, player.y + 28, 27 + Math.sin(serverNow / 110) * 2);
+    maxLabel.setPosition(centerX, player.y + 62).setVisible(true).setAlpha(0.82 + Math.sin(serverNow / 90) * 0.18);
+  } else {
+    maxLabel.setVisible(false);
   }
 }
 
@@ -279,6 +410,7 @@ function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["pl
     scene.add.ellipse(0, 0, 6, 4, 0xff9fb0, 0.68).setName("leftCheek"),
     scene.add.ellipse(0, 0, 6, 4, 0xff9fb0, 0.68).setName("rightCheek"),
     scene.add.arc(0, 0, 7, 20, 160, false).setStrokeStyle(2.5, 0x102538).setName("mouth"),
+    scene.add.ellipse(0, 0, 7, 9, 0x102538).setName("mouthOpen").setVisible(false),
     scene.add.rectangle(0, 0, 15, 10, bibColor, 0.96).setStrokeStyle(1, 0x102538, 0.45).setName("bib")
   ];
   const number = scene.add.text(0, 0, player.isCpu ? "AI" : player.team ? `T${player.team}` : "SR", {
@@ -290,25 +422,65 @@ function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["pl
   return scene.add.group([...objects, number]);
 }
 
-function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: RoomState["players"][number]) {
+function updatePlayerSprite(
+  group: import("phaser").GameObjects.Group,
+  player: RoomState["players"][number],
+  motionFx: PlayerMotionFx,
+  chargeRatio: number,
+  now: number
+) {
   const centerX = player.x + 17;
   const centerY = player.y + 23;
   const faceDir = player.facing === "right" ? 1 : -1;
-  const bob = player.jumping ? -3 : 0;
-  const squashX = player.jumping ? 0.94 : 1;
-  const squashY = player.jumping ? 1.08 : 1;
+  const isFalling = player.jumping && player.vy > 150;
+  const isRising = player.jumping && player.vy < -80;
+  const launchStrength = motionFx.launchAt ? Math.max(0, 1 - (now - motionFx.launchAt) / 170) : 0;
+  const landStrength = motionFx.landAt ? Math.max(0, 1 - (now - motionFx.landAt) / 190) : 0;
+  const pushStrength = motionFx.pushAt ? Math.max(0, 1 - (now - motionFx.pushAt) / 230) : 0;
+  const idleBob = !player.jumping && chargeRatio === 0 && landStrength === 0 ? Math.sin(now / 180 + player.id.length) * 0.8 : 0;
+
+  let squashX = player.jumping ? 0.96 : 1;
+  let squashY = player.jumping ? 1.05 : 1;
+  let bodyAngle = 0;
+  let bodyOffsetY = idleBob;
+  if (isRising) {
+    squashX = 0.94 - launchStrength * 0.08;
+    squashY = 1.08 + launchStrength * 0.16;
+  }
+  if (chargeRatio > 0) {
+    squashX = 1 + chargeRatio * 0.2;
+    squashY = 1 - chargeRatio * 0.17;
+    bodyOffsetY = chargeRatio * 3;
+  }
+  if (landStrength > 0) {
+    squashX = 1 + landStrength * 0.24;
+    squashY = 1 - landStrength * 0.2;
+    bodyOffsetY = landStrength * 4;
+  }
+  if (pushStrength > 0) {
+    squashX = 1 + pushStrength * 0.26;
+    squashY = 1 - pushStrength * 0.12;
+    bodyAngle = motionFx.pushDirection * pushStrength * 9;
+  }
+
+  const focused = chargeRatio > 0.12;
+  const eyeScaleY = focused ? Math.max(0.38, 1 - chargeRatio * 0.62) : isFalling ? 1.24 : 1;
+  const eyeScaleX = isFalling ? 1.12 : 1;
+  const faceOffsetX = pushStrength * motionFx.pushDirection * 3;
+  const bob = player.jumping ? -3 : bodyOffsetY;
   const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number }> = {
     shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.78 : 1, scaleY: 1 },
-    body: { x: centerX, y: centerY + 5 + bob, scaleX: squashX, scaleY: squashY },
+    body: { x: centerX, y: centerY + 5 + bob, angle: bodyAngle, scaleX: squashX, scaleY: squashY },
     topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob, scaleX: squashX, scaleY: squashY },
     shine: { x: centerX - 8 * faceDir, y: centerY - 4 + bob, angle: -18 * faceDir },
-    leftEye: { x: centerX - 8 + 2 * faceDir, y: centerY + bob },
-    rightEye: { x: centerX + 8 + 2 * faceDir, y: centerY + bob },
-    leftEyeSpark: { x: centerX - 6 + 2 * faceDir, y: centerY - 2 + bob },
-    rightEyeSpark: { x: centerX + 10 + 2 * faceDir, y: centerY - 2 + bob },
-    leftCheek: { x: centerX - 13 + faceDir, y: centerY + 8 + bob },
-    rightCheek: { x: centerX + 13 + faceDir, y: centerY + 8 + bob },
-    mouth: { x: centerX + 1 * faceDir, y: centerY + 7 + bob },
+    leftEye: { x: centerX - 8 + 2 * faceDir + faceOffsetX, y: centerY + bob, scaleX: eyeScaleX, scaleY: eyeScaleY },
+    rightEye: { x: centerX + 8 + 2 * faceDir + faceOffsetX, y: centerY + bob, scaleX: eyeScaleX, scaleY: eyeScaleY },
+    leftEyeSpark: { x: centerX - 6 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob, scaleY: focused ? 0.45 : 1 },
+    rightEyeSpark: { x: centerX + 10 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob, scaleY: focused ? 0.45 : 1 },
+    leftCheek: { x: centerX - 13 + faceDir + faceOffsetX, y: centerY + 8 + bob },
+    rightCheek: { x: centerX + 13 + faceDir + faceOffsetX, y: centerY + 8 + bob },
+    mouth: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 7 + bob, scaleX: focused ? 0.72 : 1, scaleY: landStrength > 0 ? 0.55 : 1 },
+    mouthOpen: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 8 + bob, scaleX: 1, scaleY: 1 + Math.min(0.35, player.vy / 1200) },
     bib: { x: centerX, y: centerY + 17 + bob, angle: player.jumping ? -4 * faceDir : 0 },
     bibNumber: { x: centerX - 5, y: centerY + 13 + bob, angle: player.jumping ? -4 * faceDir : 0 }
   };
@@ -316,6 +488,7 @@ function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: R
     const object = child as import("phaser").GameObjects.GameObject & {
       setPosition: (x: number, y: number) => void;
       setAlpha: (alpha: number) => void;
+      setVisible?: (visible: boolean) => void;
       setRotation?: (rotation: number) => void;
       setScale?: (x: number, y?: number) => void;
     };
@@ -323,6 +496,8 @@ function updatePlayerSprite(group: import("phaser").GameObjects.Group, player: R
     if (!position) return;
     object.setPosition(position.x, position.y);
     object.setAlpha(player.connected ? 1 : 0.35);
+    if (object.name === "mouth") object.setVisible?.(!isFalling);
+    if (object.name === "mouthOpen") object.setVisible?.(isFalling);
     object.setRotation?.(PhaserMathDegToRad(position.angle ?? 0));
     object.setScale?.(position.scaleX ?? 1, position.scaleY ?? position.scaleX ?? 1);
   });
