@@ -82,6 +82,7 @@ function sx(x: number) {
 function platformColor(kind?: string) {
   if (kind === "vanish") return "#f2c960";
   if (kind === "stretch") return "#a78bfa";
+  if (kind === "moving") return "#4dabf7";
   return "#6fc89a";
 }
 
@@ -95,8 +96,21 @@ function renderStage(preview: (typeof previews)[number], offsetY: number) {
 
   const rows = platforms.map((platform, index) => {
     const altitude = Math.round(metrics.spawnY - platform.y);
+    const movementRange = platform.kind === "moving"
+      ? (() => {
+        const minX = Math.min(platform.minX ?? platform.x, platform.maxX ?? platform.x);
+        const maxX = Math.max(platform.minX ?? platform.x, platform.maxX ?? platform.x);
+        const rangeX = sx(minX);
+        const rangeWidth = (maxX - minX + platform.w) * scale;
+        return `
+      <rect x="${rangeX.toFixed(1)}" y="${(sy(platform.y) - 5).toFixed(1)}" width="${rangeWidth.toFixed(1)}" height="${Math.max(18, platform.h * scale + 10).toFixed(1)}" rx="5" fill="#4dabf7" opacity="0.16" stroke="#74c0fc" stroke-width="2" stroke-dasharray="7 6" />
+      <line x1="${rangeX.toFixed(1)}" y1="${(sy(platform.y) - 8).toFixed(1)}" x2="${rangeX.toFixed(1)}" y2="${(sy(platform.y) + 16).toFixed(1)}" stroke="#d0ebff" stroke-width="2" />
+      <line x1="${(rangeX + rangeWidth).toFixed(1)}" y1="${(sy(platform.y) - 8).toFixed(1)}" x2="${(rangeX + rangeWidth).toFixed(1)}" y2="${(sy(platform.y) + 16).toFixed(1)}" stroke="#d0ebff" stroke-width="2" />`;
+      })()
+      : "";
     return `
     <g>
+      ${movementRange}
       <rect x="${sx(platform.x).toFixed(1)}" y="${sy(platform.y).toFixed(1)}" width="${(platform.w * scale).toFixed(1)}" height="${Math.max(8, platform.h * scale).toFixed(1)}" rx="3" fill="${platformColor(platform.kind)}" stroke="#dce7ee" stroke-width="2" />
       <text x="${sx(platform.x + platform.w / 2).toFixed(1)}" y="${(sy(platform.y) - 6).toFixed(1)}" text-anchor="middle">${index} / ${altitude}m${platform.kind ? ` / ${platform.kind}` : ""}</text>
     </g>`;
@@ -170,7 +184,7 @@ const html = `<!doctype html>
 <body>
   <header>
     <h1>Sky Rush コースプレビュー</h1>
-    <p>バトル4コースとチーム登山1コース。黄色は消える床、紫は伸縮バーです。</p>
+    <p>バトル4コースとチーム登山1コース。黄色は消える床、紫は伸縮バー、水色の半透明帯は移動床の可動範囲です。</p>
   </header>
   ${svg}
 </body>

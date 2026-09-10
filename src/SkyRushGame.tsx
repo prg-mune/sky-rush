@@ -143,14 +143,20 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
           activePlatforms(roomRef.current.mode, roomRef.current.stageId).forEach((platform, index) => {
             const isStretch = platform.kind === "stretch";
             const isVanish = platform.kind === "vanish";
-            const color = isStretch ? 0xf783ac : isVanish ? 0xb197fc : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
-            const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, isStretch ? 0xffdeeb : isVanish ? 0xe5dbff : 0xffffff, 0.7);
+            const isMoving = platform.kind === "moving";
+            const color = isStretch ? 0xf783ac : isVanish ? 0xb197fc : isMoving ? 0x4dabf7 : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
+            const strokeColor = isStretch ? 0xffdeeb : isVanish ? 0xe5dbff : isMoving ? 0xd0ebff : 0xffffff;
+            const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, strokeColor, 0.7);
             if (isStretch) {
               const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, Math.max(20, platform.w - 34), 6, 0xffdeeb, 0.75);
               animatedPlatforms.push({ platform, body, cap });
             }
             if (isVanish) {
               const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, 0xe5dbff, 0.82);
+              animatedPlatforms.push({ platform, body, cap });
+            }
+            if (isMoving) {
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, 0xd0ebff, 0.82);
               animatedPlatforms.push({ platform, body, cap });
             }
           });
@@ -681,11 +687,17 @@ function updateAnimatedPlatforms(animatedPlatforms: Array<{ platform: PlatformVi
       bar.cap?.setPosition(centerX, current.y + 5);
       bar.cap?.setSize(Math.max(28, current.w - 28), 5);
       if (bar.cap) bar.cap.scaleX = 1;
-    } else {
+    } else if (current.kind === "stretch") {
       bar.body.setAlpha(1);
       bar.cap?.setAlpha(0.75);
       bar.cap?.setPosition(centerX, centerY);
       bar.cap?.setSize(Math.max(20, current.w - 34), 6);
+      if (bar.cap) bar.cap.scaleX = 1;
+    } else {
+      bar.body.setAlpha(1);
+      bar.cap?.setAlpha(0.82);
+      bar.cap?.setPosition(centerX, current.y + 5);
+      bar.cap?.setSize(Math.max(28, current.w - 28), 5);
       if (bar.cap) bar.cap.scaleX = 1;
     }
   }

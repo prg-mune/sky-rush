@@ -5,9 +5,11 @@ export type Platform = {
   y: number;
   w: number;
   h: number;
-  kind?: "stretch" | "vanish";
+  kind?: "stretch" | "vanish" | "moving";
   minW?: number;
   maxW?: number;
+  minX?: number;
+  maxX?: number;
   periodMs?: number;
   phaseMs?: number;
   visibleMs?: number;
@@ -568,12 +570,24 @@ export function currentPlatform(platform: Platform, now: number): Platform {
       active: elapsed < visibleMs
     };
   }
+  if (platform.kind === "moving") {
+    const minX = platform.minX ?? platform.x;
+    const maxX = platform.maxX ?? platform.x;
+    const periodMs = platform.periodMs ?? 3200;
+    const phaseMs = platform.phaseMs ?? 0;
+    const t = positiveModulo(now + phaseMs, periodMs) / periodMs;
+    const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
+    return {
+      ...platform,
+      x: minX + (maxX - minX) * eased
+    };
+  }
   if (platform.kind !== "stretch") return platform;
   const minW = platform.minW ?? platform.w;
   const maxW = platform.maxW ?? platform.w;
   const periodMs = platform.periodMs ?? 3200;
   const phaseMs = platform.phaseMs ?? 0;
-  const t = ((now + phaseMs) % periodMs) / periodMs;
+  const t = positiveModulo(now + phaseMs, periodMs) / periodMs;
   const eased = (1 - Math.cos(t * Math.PI * 2)) / 2;
   const w = minW + (maxW - minW) * eased;
   return {
@@ -581,6 +595,10 @@ export function currentPlatform(platform: Platform, now: number): Platform {
     x: platform.x + platform.w / 2 - w / 2,
     w
   };
+}
+
+function positiveModulo(value: number, divisor: number) {
+  return ((value % divisor) + divisor) % divisor;
 }
 
 export function activeCollisionPlatforms(mode: GameMode, stageId: StageId, now: number) {

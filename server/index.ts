@@ -14,11 +14,12 @@ import type {
   StageId
 } from "../shared/types";
 import {
-  activeCollisionPlatforms,
   courseBoundsAt,
+  currentPlatform,
   normalizeStageId,
   stage,
   stageMetrics,
+  stagePlatforms,
   validateStageLayouts
 } from "../shared/stage-layout";
 
@@ -37,6 +38,7 @@ type PlayerRuntime = PlayerSnapshot & {
   jumpPressWasActionable: boolean;
   onGround: boolean;
   standingOnPlayerId: string | null;
+  standingOnPlatformIndex: number | null;
   wallTouch: "left" | "right" | null;
   aiTargetX?: number;
   aiNextThinkAt?: number;
@@ -83,7 +85,7 @@ function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
     serverTime: Date.now(),
-    players: [...room.players.values()].map(({ input, onGround, chargeStartedAt, jumpPressWasActionable, standingOnPlayerId, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => ({
+    players: [...room.players.values()].map(({ input, onGround, chargeStartedAt, jumpPressWasActionable, standingOnPlayerId, standingOnPlatformIndex, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => ({
       ...player,
       grounded: onGround
     }))
@@ -142,6 +144,7 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     jumpPressWasActionable: false,
     onGround: false,
     standingOnPlayerId: null,
+    standingOnPlatformIndex: null,
     wallTouch: null,
     aiSkill: isCpu ? 0.72 + Math.random() * 0.26 : 1,
     lastPushEffectAt: 0,
@@ -197,10 +200,13 @@ function stepPhysics(io: SkyRushServer, dt: number) {
   for (const room of rooms.values()) {
     if (!room.started || room.finishedAt) continue;
     const metrics = stageMetrics(room.stageId);
-    if (room.startedAt && Date.now() < room.startedAt) {
+    const now = Date.now();
+    if (room.startedAt && now < room.startedAt) {
       io.to(room.id).emit("gameState", roomSnapshot(room));
       continue;
     }
+    const collisionPlatforms = indexedCollisionPlatforms(room, now);
+    const previousPlatforms = indexedCollisionPlatforms(room, now - dt * 1000);
     for (const player of room.players.values()) {
       if (!player.connected) continue;
       if (player.finishedAt) {
@@ -210,6 +216,12 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         continue;
       }
       if (player.isCpu) updateCpuInput(player, room);
+
+      if (player.onGround && player.standingOnPlatformIndex !== null) {
+        const current = collisionPlatforms.find((entry) => entry.index === player.standingOnPlatformIndex)?.platform;
+        const previous = previousPlatforms.find((entry) => entry.index === player.standingOnPlatformIndex)?.platform;
+        if (current?.kind === "moving" && previous) player.x += current.x - previous.x;
+      }
 
       const input = player.input;
       const move = Number(input.right) - Number(input.left);
@@ -240,6 +252,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
       player.wallTouch = null;
       player.onGround = false;
       player.standingOnPlayerId = null;
+      player.standingOnPlatformIndex = null;
 
       const bounds = courseBoundsAt(player.y, metrics);
       if (player.x < bounds.left) {
@@ -251,7 +264,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         player.wallTouch = "right";
       }
 
-      for (const platform of activePlatforms(room)) {
+      for (const { platform, index: platformIndex } of collisionPlatforms) {
         const platformMargin = platform.kind === "stretch" ? 14 : 0;
         const withinX = player.x + stage.playerW > platform.x - platformMargin && player.x < platform.x + platform.w + platformMargin;
         const previousBottom = previousY + stage.playerH;
@@ -265,6 +278,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
           player.vy = 0;
           player.onGround = true;
           player.jumping = false;
+          player.standingOnPlatformIndex = platformIndex;
         } else if (hitUnderside) {
           player.y = platformBottom;
           player.vy = 140;
@@ -307,6 +321,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         player.y = metrics.spawnY;
         player.vx = 0;
         player.vy = 0;
+        player.standingOnPlatformIndex = null;
       }
 
       player.altitude = Math.max(0, metrics.spawnY - player.y);
@@ -633,8 +648,14 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   player.input.seq += 1;
 }
 
+function indexedCollisionPlatforms(room: Pick<RoomRuntime, "mode" | "stageId">, now: number) {
+  return stagePlatforms(room.mode, room.stageId)
+    .map((platform, index) => ({ index, platform: currentPlatform(platform, now) }))
+    .filter(({ platform }) => platform.active !== false);
+}
+
 function activePlatforms(room: Pick<RoomRuntime, "mode" | "stageId">) {
-  return activeCollisionPlatforms(room.mode, room.stageId, Date.now());
+  return indexedCollisionPlatforms(room, Date.now()).map(({ platform }) => platform);
 }
 
 function spawnXFor(index: number) {
