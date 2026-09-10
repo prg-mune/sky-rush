@@ -32,16 +32,26 @@ function Invoke-Native($Command, $Arguments) {
 $Identity = aws sts get-caller-identity --region $Region | ConvertFrom-Json
 $AccountId = $Identity.Account
 $Registry = "$AccountId.dkr.ecr.$Region.amazonaws.com"
+$CommitHash = (git rev-parse HEAD).Trim()
 $ImageTag = (git rev-parse --short HEAD).Trim()
-if (-not $ImageTag) {
+if (-not $CommitHash -or -not $ImageTag) {
+  $CommitHash = "unknown"
   $ImageTag = (Get-Date -Format "yyyyMMddHHmmss")
 }
+$DeployStartedAt = Get-Date
+$DeployedAt = $DeployStartedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$WorkingTreeStatus = git status --short
 $ImageUri = "$Registry/$EcrRepository`:$ImageTag"
 
 Write-Host "AWS account: $AccountId"
 Write-Host "Region: $Region"
 Write-Host "ECR repository: $EcrRepository"
+Write-Host "Commit: $CommitHash"
+Write-Host "Deploy started: $($DeployStartedAt.ToString('yyyy-MM-dd HH:mm:ss zzz'))"
 Write-Host "Image: $ImageUri"
+if ($WorkingTreeStatus) {
+  Write-Warning "The working tree has uncommitted changes. Only committed content is identified by $ImageTag."
+}
 
 $PreviousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
@@ -68,7 +78,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Building Docker image..."
-Invoke-Native "docker" @("build", "-t", $ImageUri, ".")
+Invoke-Native "docker" @(
+  "build",
+  "--build-arg", "NEXT_PUBLIC_COMMIT_SHA=$ImageTag",
+  "-t", $ImageUri,
+  "."
+)
 
 Write-Host "Pushing Docker image..."
 Invoke-Native "docker" @("push", $ImageUri)
@@ -83,13 +98,26 @@ Invoke-Native "aws" @(
   "ImageUri=$ImageUri",
   "ContainerPort=$ContainerPort",
   "DesiredCount=$DesiredCount",
+  "DeploymentCommit=$CommitHash",
+  "DeployedAt=$DeployedAt",
   "--capabilities", "CAPABILITY_NAMED_IAM",
   "--region", $Region
 )
 
 Write-Host "Deployment outputs:"
-aws cloudformation describe-stacks `
-  --stack-name $StackName `
-  --region $Region `
-  --query "Stacks[0].Outputs" `
-  --output table
+Invoke-Native "aws" @(
+  "cloudformation", "describe-stacks",
+  "--stack-name", $StackName,
+  "--region", $Region,
+  "--query", "Stacks[0].Outputs",
+  "--output", "table"
+)
+
+$DeployFinishedAt = Get-Date
+$Elapsed = $DeployFinishedAt - $DeployStartedAt
+Write-Host ""
+Write-Host "Deployment completed."
+Write-Host "Commit: $CommitHash ($ImageTag)"
+Write-Host "Deployed at: $($DeployFinishedAt.ToString('yyyy-MM-dd HH:mm:ss zzz'))"
+Write-Host "Elapsed: $([math]::Round($Elapsed.TotalMinutes, 1)) minutes"
+Write-Host "Image: $ImageUri"

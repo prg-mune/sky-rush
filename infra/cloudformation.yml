@@ -7,6 +7,12 @@ Parameters:
     Default: sky-rush
   ImageUri:
     Type: String
+  DeploymentCommit:
+    Type: String
+    Default: unknown
+  DeployedAt:
+    Type: String
+    Default: unknown
   ContainerPort:
     Type: Number
     Default: 3000
@@ -166,6 +172,10 @@ Resources:
               Value: production
             - Name: PORT
               Value: !Sub ${ContainerPort}
+            - Name: SKY_RUSH_DEPLOYMENT_COMMIT
+              Value: !Ref DeploymentCommit
+            - Name: SKY_RUSH_DEPLOYED_AT
+              Value: !Ref DeployedAt
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -252,5 +262,11 @@ Outputs:
     Value: !Ref Cluster
   ServiceName:
     Value: !GetAtt Service.Name
+  DeploymentCommit:
+    Description: Git commit deployed by the latest stack update.
+    Value: !Ref DeploymentCommit
+  DeployedAt:
+    Description: UTC timestamp when the latest deployment started.
+    Value: !Ref DeployedAt
   TaskExecutionRoleArn:
     Value: !GetAtt TaskExecutionRole.Arn

@@ -21,6 +21,7 @@ type NoticeKind = "info" | "success" | "warning" | "error";
 type Notice = { kind: NoticeKind; text: string };
 type ConnectionStatus = "connecting" | "online" | "offline";
 const SESSION_STORAGE_KEY = "sky-rush-session-id";
+const BUILD_COMMIT = process.env.NEXT_PUBLIC_COMMIT_SHA || "dev";
 const enabledStageIds = new Set<StageId>(["battle_01_garden", "battle_03_cloud_jumble", "battle_07_cup_qualifier", "battle_10_everest_rush", "team_01_skybase"]);
 const playerColors = ["#ff6b6b", "#4dabf7", "#51cf66", "#ffd43b", "#da77f2", "#20c997", "#ff922b", "#f06595"];
 
@@ -275,7 +276,7 @@ export default function Home() {
               <p className="eyebrow">Entry Gate</p>
               <h2>ログイン</h2>
             </div>
-            <span className="panelBadge">v1.0</span>
+            <span className="panelBadge">v1.0 · build {BUILD_COMMIT}</span>
           </div>
           <label>
             プレイヤー名
