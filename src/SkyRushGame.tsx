@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents, StageId } from "../shared/types";
-import { currentPlatform as resolvePlatform, stageMetrics, stagePlatforms, type Platform } from "../shared/stage-layout";
+import { currentPlatform as resolvePlatform, stage, stageMetrics, stagePlatforms, type Platform } from "../shared/stage-layout";
 
 type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -132,8 +132,14 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
           for (let y = 0; y < worldHeight; y += 220) {
             this.add.line(0, y, 0, 0, 2200, 0, 0x203f5a, 0.45);
           }
-          this.add.rectangle(1100, metrics.goalY, 440, 42, 0xf5d76e);
-          this.add.text(992, metrics.goalY - 26, "GOAL", { fontFamily: "Arial", fontSize: "28px", color: "#17202a", fontStyle: "bold" });
+          const goalCenterX = stage.width / 2;
+          this.add.rectangle(goalCenterX, metrics.goalY, 440, 42, 0xf5d76e);
+          this.add.text(goalCenterX, metrics.goalY, "GOAL", {
+            fontFamily: "Arial",
+            fontSize: "28px",
+            color: "#17202a",
+            fontStyle: "bold"
+          }).setOrigin(0.5);
           activePlatforms(roomRef.current.mode, roomRef.current.stageId).forEach((platform, index) => {
             const isStretch = platform.kind === "stretch";
             const isVanish = platform.kind === "vanish";
