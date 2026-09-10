@@ -36,6 +36,7 @@ export type PlayerSnapshot = {
   vy: number;
   facing: "left" | "right";
   jumping: boolean;
+  grounded?: boolean;
   altitude: number;
   connected: boolean;
   isCpu?: boolean;

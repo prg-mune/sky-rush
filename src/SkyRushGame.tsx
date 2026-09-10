@@ -48,6 +48,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
       let activeScene: Phaser.Scene | null = null;
       let jumpStarted = 0;
       let jumpHeldMs = 0;
+      let chargeStartedOnGround = false;
       let jumpRequestId = 0;
       let lastSentAt = 0;
       let lastSentSignature = "";
@@ -87,8 +88,12 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
         update() {
           const frameNow = Date.now();
           const serverNow = frameNow + serverClockOffsetRef.current;
-          const chargeRatio = currentChargeRatio();
           const me = roomRef.current.players.find((player) => player.id === socket.id);
+          if (keys.jump && chargeStartedOnGround && me && !me.grounded) {
+            chargeStartedOnGround = false;
+            jumpHeldMs = 0;
+          }
+          const chargeRatio = currentChargeRatio();
           const cameraPlayer = roomRef.current.players.find((player) => player.id === spectatingPlayerIdRef.current) ?? me;
           if (cameraPlayer && this.cameraTarget) this.cameraTarget.setPosition(cameraPlayer.x, cameraPlayer.y);
           syncSprites(this, Phaser, playerSprites, nameLabels, playerMotionFx, roomRef.current, socket.id, chargeRatio, frameNow);
@@ -146,8 +151,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
         if (event.code === "KeyA" || event.code === "ArrowLeft") keys.left = true;
         if (event.code === "KeyD" || event.code === "ArrowRight") keys.right = true;
         if (event.code === "Space") {
-          if (!keys.jump) jumpStarted = performance.now();
-          keys.jump = true;
+          beginJumpCharge();
           event.preventDefault();
         }
       }
@@ -168,8 +172,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
         hostRef.current?.setPointerCapture(event.pointerId);
         keys.left = false;
         keys.right = false;
-        if (!keys.jump) jumpStarted = performance.now();
-        keys.jump = true;
+        beginJumpCharge();
         event.preventDefault();
       }
 
@@ -194,31 +197,48 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
 
       function finishJumpCharge() {
         if (keys.jump) {
-          jumpHeldMs = performance.now() - jumpStarted;
+          jumpHeldMs = chargeStartedOnGround ? performance.now() - jumpStarted : 0;
           jumpRequestId += 1;
         }
         keys.jump = false;
+        chargeStartedOnGround = false;
+      }
+
+      function beginJumpCharge() {
+        const serverNow = Date.now() + serverClockOffsetRef.current;
+        if (roomRef.current.startedAt && serverNow < roomRef.current.startedAt) return;
+        if (!keys.jump) {
+          jumpStarted = performance.now();
+          const me = roomRef.current.players.find((player) => player.id === socket.id);
+          chargeStartedOnGround = Boolean(me?.grounded);
+          jumpHeldMs = 0;
+        }
+        keys.jump = true;
+      }
+
+      function currentHeldMs() {
+        if (!keys.jump) return jumpHeldMs;
+        return chargeStartedOnGround ? performance.now() - jumpStarted : 0;
       }
 
       function currentInput(seqValue: number): ClientInput {
-        const heldMs = keys.jump ? performance.now() - jumpStarted : jumpHeldMs;
         return {
           left: keys.left,
           right: keys.right,
           jump: keys.jump,
-          jumpHeldMs: heldMs,
+          jumpHeldMs: currentHeldMs(),
           jumpRequestId,
           seq: seqValue
         };
       }
 
       function currentChargeRatio() {
-        if (!keys.jump) return 0;
-        return Math.min(1, Math.max(0, (performance.now() - jumpStarted) / 650));
+        if (!keys.jump || !chargeStartedOnGround) return 0;
+        return Math.min(1, Math.max(0, currentHeldMs() / 650));
       }
 
       function inputSignature() {
-        return `${Number(keys.left)}:${Number(keys.right)}:${Number(keys.jump)}:${jumpRequestId}:${Math.round((keys.jump ? performance.now() - jumpStarted : jumpHeldMs) / 50)}`;
+        return `${Number(keys.left)}:${Number(keys.right)}:${Number(keys.jump)}:${jumpRequestId}:${Math.round(currentHeldMs() / 50)}`;
       }
 
       function sendInput(now: number) {
@@ -434,18 +454,18 @@ function updatePlayerSprite(
   const faceDir = player.facing === "right" ? 1 : -1;
   const isFalling = player.jumping && player.vy > 150;
   const isRising = player.jumping && player.vy < -80;
-  const launchStrength = motionFx.launchAt ? Math.max(0, 1 - (now - motionFx.launchAt) / 170) : 0;
+  const launchStrength = motionFx.launchAt ? Math.max(0, 1 - (now - motionFx.launchAt) / 220) : 0;
   const landStrength = motionFx.landAt ? Math.max(0, 1 - (now - motionFx.landAt) / 190) : 0;
   const pushStrength = motionFx.pushAt ? Math.max(0, 1 - (now - motionFx.pushAt) / 230) : 0;
   const idleBob = !player.jumping && chargeRatio === 0 && landStrength === 0 ? Math.sin(now / 180 + player.id.length) * 0.8 : 0;
 
-  let squashX = player.jumping ? 0.96 : 1;
-  let squashY = player.jumping ? 1.05 : 1;
+  let squashX = player.jumping ? 0.94 : 1;
+  let squashY = player.jumping ? 1.11 : 1;
   let bodyAngle = 0;
   let bodyOffsetY = idleBob;
   if (isRising) {
-    squashX = 0.94 - launchStrength * 0.08;
-    squashY = 1.08 + launchStrength * 0.16;
+    squashX = 0.91 - launchStrength * 0.09;
+    squashY = 1.16 + launchStrength * 0.2;
   }
   if (chargeRatio > 0) {
     squashX = 1 + chargeRatio * 0.2;
@@ -468,21 +488,22 @@ function updatePlayerSprite(
   const eyeScaleX = isFalling ? 1.12 : 1;
   const faceOffsetX = pushStrength * motionFx.pushDirection * 3;
   const bob = player.jumping ? -3 : bodyOffsetY;
+  const verticalStretch = Math.max(0, squashY - 1);
   const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number }> = {
     shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.78 : 1, scaleY: 1 },
     body: { x: centerX, y: centerY + 5 + bob, angle: bodyAngle, scaleX: squashX, scaleY: squashY },
-    topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob, scaleX: squashX, scaleY: squashY },
-    shine: { x: centerX - 8 * faceDir, y: centerY - 4 + bob, angle: -18 * faceDir },
-    leftEye: { x: centerX - 8 + 2 * faceDir + faceOffsetX, y: centerY + bob, scaleX: eyeScaleX, scaleY: eyeScaleY },
-    rightEye: { x: centerX + 8 + 2 * faceDir + faceOffsetX, y: centerY + bob, scaleX: eyeScaleX, scaleY: eyeScaleY },
-    leftEyeSpark: { x: centerX - 6 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob, scaleY: focused ? 0.45 : 1 },
-    rightEyeSpark: { x: centerX + 10 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob, scaleY: focused ? 0.45 : 1 },
-    leftCheek: { x: centerX - 13 + faceDir + faceOffsetX, y: centerY + 8 + bob },
-    rightCheek: { x: centerX + 13 + faceDir + faceOffsetX, y: centerY + 8 + bob },
-    mouth: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 7 + bob, scaleX: focused ? 0.72 : 1, scaleY: landStrength > 0 ? 0.55 : 1 },
-    mouthOpen: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 8 + bob, scaleX: 1, scaleY: 1 + Math.min(0.35, player.vy / 1200) },
-    bib: { x: centerX, y: centerY + 17 + bob, angle: player.jumping ? -4 * faceDir : 0 },
-    bibNumber: { x: centerX - 5, y: centerY + 13 + bob, angle: player.jumping ? -4 * faceDir : 0 }
+    topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob - verticalStretch * 8, scaleX: squashX, scaleY: squashY },
+    shine: { x: centerX - 8 * faceDir, y: centerY - 4 + bob - verticalStretch * 4, angle: -18 * faceDir },
+    leftEye: { x: centerX - 8 + 2 * faceDir + faceOffsetX, y: centerY + bob - verticalStretch * 2, scaleX: eyeScaleX, scaleY: eyeScaleY },
+    rightEye: { x: centerX + 8 + 2 * faceDir + faceOffsetX, y: centerY + bob - verticalStretch * 2, scaleX: eyeScaleX, scaleY: eyeScaleY },
+    leftEyeSpark: { x: centerX - 6 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob - verticalStretch * 2, scaleY: focused ? 0.45 : 1 },
+    rightEyeSpark: { x: centerX + 10 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob - verticalStretch * 2, scaleY: focused ? 0.45 : 1 },
+    leftCheek: { x: centerX - 13 + faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 2 },
+    rightCheek: { x: centerX + 13 + faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 2 },
+    mouth: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 7 + bob + verticalStretch * 3, scaleX: focused ? 0.72 : 1, scaleY: landStrength > 0 ? 0.55 : 1 },
+    mouthOpen: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 3, scaleX: 1, scaleY: 1 + Math.min(0.35, player.vy / 1200) },
+    bib: { x: centerX, y: centerY + 17 + bob + verticalStretch * 7, angle: player.jumping ? -4 * faceDir : 0 },
+    bibNumber: { x: centerX - 5, y: centerY + 13 + bob + verticalStretch * 6, angle: player.jumping ? -4 * faceDir : 0 }
   };
   group.getChildren().forEach((child) => {
     const object = child as import("phaser").GameObjects.GameObject & {

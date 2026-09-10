@@ -33,6 +33,8 @@ type PlayerRuntime = PlayerSnapshot & {
   sessionId?: string;
   input: ClientInput;
   lastJumpRequestId: number;
+  chargeStartedAt?: number;
+  jumpPressWasActionable: boolean;
   onGround: boolean;
   standingOnPlayerId: string | null;
   wallTouch: "left" | "right" | null;
@@ -59,7 +61,7 @@ const handle = app.getRequestHandler();
 const rooms = new Map<string, RoomRuntime>();
 
 const CPU_TARGET_PLAYERS = 20;
-const COUNTDOWN_MS = 4000;
+const COUNTDOWN_MS = 5000;
 const DISCONNECTED_PLAYER_TTL_MS = 2 * 60 * 1000;
 const EMPTY_ROOM_TTL_MS = 30 * 1000;
 const PLAYER_COLORS = ["#ff6b6b", "#4dabf7", "#51cf66", "#ffd43b", "#da77f2", "#20c997", "#ff922b", "#f06595"];
@@ -81,7 +83,10 @@ function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
     serverTime: Date.now(),
-    players: [...room.players.values()].map(({ input, onGround, standingOnPlayerId, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => player)
+    players: [...room.players.values()].map(({ input, onGround, chargeStartedAt, jumpPressWasActionable, standingOnPlayerId, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => ({
+      ...player,
+      grounded: onGround
+    }))
   };
 }
 
@@ -134,6 +139,7 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     color: isCpu ? "#9aa6b2" : PLAYER_COLORS[index % PLAYER_COLORS.length],
     input: { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 },
     lastJumpRequestId: 0,
+    jumpPressWasActionable: false,
     onGround: false,
     standingOnPlayerId: null,
     wallTouch: null,
@@ -283,6 +289,11 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         }
       }
 
+      if (player.input.jump && !player.onGround && !player.wallTouch) {
+        player.chargeStartedAt = undefined;
+        player.jumpPressWasActionable = false;
+      }
+
       if (player.y > metrics.spawnY + 460) {
         player.x = spawnXFor(Number(player.id.replace(/\D/g, "").slice(-2)) || 0);
         player.y = metrics.spawnY;
@@ -392,8 +403,41 @@ app.prepare().then(() => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
       const player = room?.players.get(socket.id);
       if (player && player.connected && input.seq >= player.input.seq) {
-        player.input = input;
-        player.lastInputAt = Date.now();
+        const now = Date.now();
+        if (room?.startedAt && now < room.startedAt) {
+          player.chargeStartedAt = undefined;
+          player.jumpPressWasActionable = false;
+          player.input = {
+            ...input,
+            jump: false,
+            jumpHeldMs: 0,
+            jumpRequestId: player.input.jumpRequestId
+          };
+          player.lastInputAt = now;
+          return;
+        }
+        const pressed = input.jump && !player.input.jump;
+        const released = !input.jump && player.input.jump;
+        if (pressed) {
+          player.jumpPressWasActionable = player.onGround || Boolean(player.wallTouch);
+          player.chargeStartedAt = player.onGround ? now : undefined;
+        }
+
+        let acceptedJumpRequestId = player.input.jumpRequestId;
+        let groundedChargeMs = player.chargeStartedAt ? now - player.chargeStartedAt : 0;
+        if (released) {
+          if (player.jumpPressWasActionable) acceptedJumpRequestId = input.jumpRequestId;
+          groundedChargeMs = player.chargeStartedAt ? now - player.chargeStartedAt : 0;
+          player.chargeStartedAt = undefined;
+          player.jumpPressWasActionable = false;
+        }
+
+        player.input = {
+          ...input,
+          jumpHeldMs: Math.max(0, Math.min(650, groundedChargeMs)),
+          jumpRequestId: acceptedJumpRequestId
+        };
+        player.lastInputAt = now;
       }
     });
 
@@ -429,6 +473,8 @@ function reconnectPlayer(io: SkyRushServer, socket: SkyRushSocket) {
     player.connected = true;
     player.disconnectedAt = undefined;
     player.input = { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: 0, seq: 0 };
+    player.chargeStartedAt = undefined;
+    player.jumpPressWasActionable = false;
     player.lastInputAt = Date.now();
     room.players.set(socket.id, player);
     if (room.ownerId === oldId) room.ownerId = socket.id;
@@ -464,6 +510,8 @@ function leaveRoom(io: SkyRushServer, socket: Pick<SkyRushSocket, "id" | "data" 
       player.connected = false;
       player.disconnectedAt = Date.now();
       player.input = { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId: player.input.seq + 1, seq: player.input.seq + 1 };
+      player.chargeStartedAt = undefined;
+      player.jumpPressWasActionable = false;
     }
   } else {
     room.players.delete(socket.id);
