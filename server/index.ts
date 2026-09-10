@@ -289,9 +289,17 @@ function stepPhysics(io: SkyRushServer, dt: number) {
         }
       }
 
-      if (player.input.jump && !player.onGround && !player.wallTouch) {
-        player.chargeStartedAt = undefined;
-        player.jumpPressWasActionable = false;
+      if (player.input.jump) {
+        if (player.onGround && !player.jumpPressWasActionable) {
+          player.chargeStartedAt = Date.now();
+          player.jumpPressWasActionable = true;
+        } else if (player.wallTouch && !player.jumpPressWasActionable) {
+          player.chargeStartedAt = undefined;
+          player.jumpPressWasActionable = true;
+        } else if (!player.onGround && !player.wallTouch) {
+          player.chargeStartedAt = undefined;
+          player.jumpPressWasActionable = false;
+        }
       }
 
       if (player.y > metrics.spawnY + 460) {

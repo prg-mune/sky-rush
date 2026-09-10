@@ -47,7 +47,6 @@ export default function Home() {
   const [mode, setMode] = useState<GameMode>("battle");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
   const [maxPlayers, setMaxPlayers] = useState(5);
-  const [now, setNow] = useState(Date.now());
   const [spectatingPlayerId, setSpectatingPlayerId] = useState<string | undefined>();
   const [showRules, setShowRules] = useState(false);
 
@@ -95,11 +94,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 100);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     if (!notice || notice.kind === "error" || notice.kind === "warning") return;
     const timer = window.setTimeout(() => setNotice(null), 2800);
     return () => window.clearTimeout(timer);
@@ -135,9 +129,10 @@ export default function Home() {
   );
   const isOwner = Boolean(room && socket?.id === room.ownerId);
   const selectableStages = useMemo(() => stageOptions.filter((stage) => stage.mode === mode), [mode]);
-  const countdownMs = Math.max(0, (room?.startedAt || 0) - now);
+  const synchronizedNow = room?.serverTime ?? Date.now();
+  const countdownMs = Math.max(0, (room?.startedAt || 0) - synchronizedNow);
   const countdownLabel = countdownMs > 0 ? Math.ceil(countdownMs / 1000).toString() : "";
-  const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - now);
+  const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - synchronizedNow);
   const isLastSpurt = Boolean(me && room && me.altitude > stageClimbHeight(room.stageId) * 0.84 && !room.finishedAt);
   const isSpectator = Boolean(me?.finishedAt && room && !room.finishedAt);
 

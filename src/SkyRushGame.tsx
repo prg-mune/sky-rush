@@ -89,9 +89,15 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
           const frameNow = Date.now();
           const serverNow = frameNow + serverClockOffsetRef.current;
           const me = roomRef.current.players.find((player) => player.id === socket.id);
-          if (keys.jump && chargeStartedOnGround && me && !me.grounded) {
-            chargeStartedOnGround = false;
-            jumpHeldMs = 0;
+          if (keys.jump && me) {
+            if (me.grounded && !chargeStartedOnGround) {
+              jumpStarted = performance.now();
+              jumpHeldMs = 0;
+              chargeStartedOnGround = true;
+            } else if (!me.grounded && chargeStartedOnGround) {
+              chargeStartedOnGround = false;
+              jumpHeldMs = 0;
+            }
           }
           const chargeRatio = currentChargeRatio();
           const cameraPlayer = roomRef.current.players.find((player) => player.id === spectatingPlayerIdRef.current) ?? me;
