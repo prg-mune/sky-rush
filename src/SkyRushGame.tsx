@@ -471,38 +471,38 @@ function updatePlayerSprite(
   const pushStrength = motionFx.pushAt ? Math.max(0, 1 - (now - motionFx.pushAt) / 230) : 0;
   const idleBob = !player.jumping && chargeRatio === 0 && landStrength === 0 ? Math.sin(now / 180 + player.id.length) * 0.8 : 0;
 
-  let squashX = player.jumping ? 0.94 : 1;
-  let squashY = player.jumping ? 1.11 : 1;
+  let squashX = player.jumping ? 0.88 : 1;
+  let squashY = player.jumping ? 1.22 : 1;
   let bodyAngle = 0;
   let bodyOffsetY = idleBob;
   if (isRising) {
-    squashX = 0.91 - launchStrength * 0.09;
-    squashY = 1.16 + launchStrength * 0.2;
+    squashX = 0.82 - launchStrength * 0.18;
+    squashY = 1.32 + launchStrength * 0.4;
   }
   if (chargeRatio > 0) {
-    squashX = 1 + chargeRatio * 0.2;
-    squashY = 1 - chargeRatio * 0.17;
-    bodyOffsetY = chargeRatio * 3;
+    squashX = 1 + chargeRatio * 0.4;
+    squashY = 1 - chargeRatio * 0.34;
+    bodyOffsetY = chargeRatio * 6;
   }
   if (landStrength > 0) {
-    squashX = 1 + landStrength * 0.24;
-    squashY = 1 - landStrength * 0.2;
-    bodyOffsetY = landStrength * 4;
+    squashX = 1 + landStrength * 0.48;
+    squashY = 1 - landStrength * 0.4;
+    bodyOffsetY = landStrength * 8;
   }
   if (pushStrength > 0) {
-    squashX = 1 + pushStrength * 0.26;
-    squashY = 1 - pushStrength * 0.12;
-    bodyAngle = motionFx.pushDirection * pushStrength * 9;
+    squashX = 1 + pushStrength * 0.52;
+    squashY = 1 - pushStrength * 0.24;
+    bodyAngle = motionFx.pushDirection * pushStrength * 18;
   }
 
   const focused = chargeRatio > 0.12;
-  const eyeScaleY = focused ? Math.max(0.38, 1 - chargeRatio * 0.62) : isFalling ? 1.24 : 1;
-  const eyeScaleX = isFalling ? 1.12 : 1;
-  const faceOffsetX = pushStrength * motionFx.pushDirection * 3;
-  const bob = player.jumping ? -3 : bodyOffsetY;
+  const eyeScaleY = focused ? Math.max(0.22, 1 - chargeRatio * 0.78) : isFalling ? 1.48 : 1;
+  const eyeScaleX = isFalling ? 1.24 : 1;
+  const faceOffsetX = pushStrength * motionFx.pushDirection * 6;
+  const bob = player.jumping ? -6 : bodyOffsetY;
   const verticalStretch = Math.max(0, squashY - 1);
   const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number }> = {
-    shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.78 : 1, scaleY: 1 },
+    shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.56 : 1, scaleY: 1 },
     body: { x: centerX, y: centerY + 5 + bob, angle: bodyAngle, scaleX: squashX, scaleY: squashY },
     topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob - verticalStretch * 8, scaleX: squashX, scaleY: squashY },
     shine: { x: centerX - 8 * faceDir, y: centerY - 4 + bob - verticalStretch * 4, angle: -18 * faceDir },
@@ -512,10 +512,10 @@ function updatePlayerSprite(
     rightEyeSpark: { x: centerX + 10 + 2 * faceDir + faceOffsetX, y: centerY - 2 + bob - verticalStretch * 2, scaleY: focused ? 0.45 : 1 },
     leftCheek: { x: centerX - 13 + faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 2 },
     rightCheek: { x: centerX + 13 + faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 2 },
-    mouth: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 7 + bob + verticalStretch * 3, scaleX: focused ? 0.72 : 1, scaleY: landStrength > 0 ? 0.55 : 1 },
-    mouthOpen: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 3, scaleX: 1, scaleY: 1 + Math.min(0.35, player.vy / 1200) },
-    bib: { x: centerX, y: centerY + 17 + bob + verticalStretch * 7, angle: player.jumping ? -4 * faceDir : 0 },
-    bibNumber: { x: centerX - 5, y: centerY + 13 + bob + verticalStretch * 6, angle: player.jumping ? -4 * faceDir : 0 }
+    mouth: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 7 + bob + verticalStretch * 3, scaleX: focused ? 0.5 : 1, scaleY: landStrength > 0 ? 0.3 : 1 },
+    mouthOpen: { x: centerX + 1 * faceDir + faceOffsetX, y: centerY + 8 + bob + verticalStretch * 3, scaleX: 1, scaleY: 1 + Math.min(0.7, player.vy / 600) },
+    bib: { x: centerX, y: centerY + 17 + bob + verticalStretch * 7, angle: player.jumping ? -8 * faceDir : 0 },
+    bibNumber: { x: centerX - 5, y: centerY + 13 + bob + verticalStretch * 6, angle: player.jumping ? -8 * faceDir : 0 }
   };
   group.getChildren().forEach((child) => {
     const object = child as import("phaser").GameObjects.GameObject & {
