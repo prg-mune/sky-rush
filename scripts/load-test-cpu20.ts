@@ -13,6 +13,8 @@ const url = process.env.SKY_RUSH_URL || "http://127.0.0.1:3000";
 const durationMs = Number(process.env.SKY_RUSH_LOAD_TEST_MS || 120_000);
 const stageId = (process.env.SKY_RUSH_STAGE_ID || "battle_10_everest_rush") as StageId;
 const password = process.env.SKY_RUSH_PASSWORD || "progress4649";
+const playerCount = Math.max(2, Math.min(20, Number(process.env.SKY_RUSH_LOAD_PLAYERS || 20)));
+const traceCpu = process.env.SKY_RUSH_TRACE_CPU === "1";
 
 let gameStateCount = 0;
 let maxPlayers = 0;
@@ -22,6 +24,7 @@ let totalStateGapMs = 0;
 let finished = false;
 let latestRoom: RoomState | null = null;
 let results: ResultRow[] = [];
+let lastTraceAt = 0;
 const errors: string[] = [];
 
 const startedAt = Date.now();
@@ -60,6 +63,13 @@ function finish(exitCode: number) {
   console.log(`Connected players: ${connectedPlayers}`);
   console.log(`CPU players: ${cpuPlayers}`);
   console.log(`Leader altitude: ${Math.round(leader?.altitude ?? 0)}m`);
+  const cpuLeaders = (latestRoom?.players ?? [])
+    .filter((player) => player.isCpu)
+    .sort((a, b) => b.altitude - a.altitude)
+    .slice(0, 5)
+    .map((player) => `${player.name}:${Math.round(player.altitude)}m@(${Math.round(player.x)},${Math.round(player.y)})`)
+    .join(", ");
+  console.log(`CPU leaders: ${cpuLeaders || "none"}`);
   console.log(`Finished results: ${results.length}`);
   if (errors.length > 0) {
     console.error("Errors:");
@@ -93,6 +103,11 @@ socket.on("gameState", (room) => {
   gameStateCount += 1;
   latestRoom = room;
   maxPlayers = Math.max(maxPlayers, room.players.length);
+  if (traceCpu && now - lastTraceAt >= 1000) {
+    lastTraceAt = now;
+    const cpu = room.players.find((player) => player.isCpu);
+    if (cpu) console.log(`CPU trace: ${Math.round(cpu.altitude)}m x=${Math.round(cpu.x)} y=${Math.round(cpu.y)} vx=${Math.round(cpu.vx)} vy=${Math.round(cpu.vy)}`);
+  }
 });
 
 socket.on("gameEnded", (payload) => {
@@ -108,7 +123,7 @@ socket.on("connect", async () => {
       name: `CPU20 Load ${Date.now().toString(36)}`,
       mode: "battle",
       difficulty: "normal",
-      maxPlayers: 20,
+      maxPlayers: playerCount,
       stageId
     });
 
@@ -119,7 +134,7 @@ socket.on("connect", async () => {
     socket.emit("startGame");
     await wait(durationMs);
 
-    if (maxPlayers !== 20) errors.push(`expected 20 players, observed ${maxPlayers}`);
+    if (maxPlayers !== playerCount) errors.push(`expected ${playerCount} players, observed ${maxPlayers}`);
     if (gameStateCount < Math.floor(durationMs / 1000) * 15) {
       errors.push(`too few gameState events: ${gameStateCount}`);
     }

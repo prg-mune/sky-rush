@@ -21,6 +21,7 @@ import {
   stage,
   stageMetrics,
   stagePlatforms,
+  type Platform,
   validateStageLayouts
 } from "../shared/stage-layout";
 
@@ -29,6 +30,8 @@ type SocketData = {
   roomId?: string;
   sessionId?: string;
 };
+
+type CpuLevel = "weak" | "strong";
 
 type PlayerRuntime = PlayerSnapshot & {
   socketId: string;
@@ -42,8 +45,14 @@ type PlayerRuntime = PlayerSnapshot & {
   standingOnPlatformIndex: number | null;
   wallTouch: "left" | "right" | null;
   aiTargetX?: number;
+  aiTakeoffX?: number;
+  aiTargetPlatformIndex?: number;
+  aiTargetLandingRatio?: number;
+  aiPlannedJumpHeldMs?: number;
+  aiSteerAt?: number;
   aiNextThinkAt?: number;
   aiNextJumpAt?: number;
+  aiLevel?: CpuLevel;
   aiSkill: number;
   lastPushEffectAt: number;
   lastInputAt: number;
@@ -86,7 +95,7 @@ function roomSnapshot(room: RoomRuntime): RoomState {
   return {
     ...room,
     serverTime: Date.now(),
-    players: [...room.players.values()].map(({ input, onGround, chargeStartedAt, jumpPressWasActionable, standingOnPlayerId, standingOnPlatformIndex, wallTouch, socketId, sessionId, aiTargetX, aiNextThinkAt, aiNextJumpAt, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => ({
+    players: [...room.players.values()].map(({ input, onGround, chargeStartedAt, jumpPressWasActionable, standingOnPlayerId, standingOnPlatformIndex, wallTouch, socketId, sessionId, aiTargetX, aiTakeoffX, aiTargetPlatformIndex, aiTargetLandingRatio, aiPlannedJumpHeldMs, aiSteerAt, aiNextThinkAt, aiNextJumpAt, aiLevel, aiSkill, lastPushEffectAt, lastInputAt, disconnectedAt, ...player }) => ({
       ...player,
       grounded: onGround
     }))
@@ -123,7 +132,7 @@ function results(room: RoomRuntime): ResultRow[] {
     }));
 }
 
-function makePlayer(socketId: string, name: string, index: number, mode: GameMode, spawnY: number, isCpu = false, preferredTeam?: number, sessionId?: string): PlayerRuntime {
+function makePlayer(socketId: string, name: string, index: number, mode: GameMode, spawnY: number, isCpu = false, preferredTeam?: number, sessionId?: string, aiLevel?: CpuLevel): PlayerRuntime {
   const now = Date.now();
   return {
     id: socketId,
@@ -148,7 +157,8 @@ function makePlayer(socketId: string, name: string, index: number, mode: GameMod
     standingOnPlayerId: null,
     standingOnPlatformIndex: null,
     wallTouch: null,
-    aiSkill: isCpu ? 0.72 + Math.random() * 0.26 : 1,
+    aiLevel,
+    aiSkill: !isCpu ? 1 : aiLevel === "strong" ? 0.9 + Math.random() * 0.08 : 0.72 + Math.random() * 0.12,
     lastPushEffectAt: 0,
     lastInputAt: now
   };
@@ -589,7 +599,9 @@ function addCpuPlayers(room: RoomRuntime, count: number) {
   for (let i = 0; i < count && room.players.size < room.maxPlayers; i += 1) {
     const cpuNumber = [...room.players.values()].filter((player) => player.isCpu).length + 1;
     const id = `cpu-${roomForId}-${cpuNumber}`;
-    room.players.set(id, makePlayer(id, `CPU ${cpuNumber}`, room.players.size, room.mode, stageMetrics(room.stageId).spawnY, true));
+    const aiLevel: CpuLevel = cpuNumber % 2 === 0 ? "strong" : "weak";
+    const levelLabel = aiLevel === "strong" ? "強" : "弱";
+    room.players.set(id, makePlayer(id, `CPU ${cpuNumber} ${levelLabel}`, room.players.size, room.mode, stageMetrics(room.stageId).spawnY, true, undefined, undefined, aiLevel));
   }
 }
 
@@ -611,7 +623,30 @@ function normalizeDifficulty(difficulty: DifficultyMode): DifficultyMode {
   return difficulty === "hard" ? "hard" : "normal";
 }
 
+type CpuRoutePlan = {
+  platformIndex: number;
+  takeoffCenterX: number;
+  landingCenterX: number;
+  landingRatio: number;
+  minLandingCenterX: number;
+  maxLandingCenterX: number;
+  jumpHeldMs: number;
+  score: number;
+};
+
+const CPU_LANDING_GRACE_MS = 220;
+const CPU_GOAL_INDEX = -1;
+const CPU_GOAL_PLATFORM: Platform = { x: 980, y: stage.goalY + stage.playerH, w: 260, h: 1 };
+
 function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
+  if (player.aiLevel === "strong") {
+    updateStrongCpuInput(player, room);
+  } else {
+    updateWeakCpuInput(player, room);
+  }
+}
+
+function updateWeakCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   const now = Date.now();
   const coursePlatforms = activePlatforms(room);
   const nearbyPlatforms = coursePlatforms
@@ -627,11 +662,12 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
       .sort((a, b) => a.score - b.score)[0]?.platform ||
     coursePlatforms.filter((platform) => platform.y < player.y - 30).sort((a, b) => b.y - a.y)[0] ||
     coursePlatforms[coursePlatforms.length - 1];
+  if (!target) return;
   const targetCenter = target.x + target.w / 2;
 
   if (!player.aiNextThinkAt || now >= player.aiNextThinkAt) {
     const error = (1 - player.aiSkill) * 180;
-    player.aiTargetX = targetCenter + (Math.random() * error * 2 - error);
+    player.aiTargetX = targetCenter + Math.random() * error * 2 - error;
     player.aiNextThinkAt = now + 180 + Math.random() * 320;
   }
 
@@ -642,9 +678,8 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   player.input.jump = false;
 
   const closeEnough = Math.abs(deltaX) < 150 + player.aiSkill * 60;
-  const stuckAtWall = Boolean(player.wallTouch);
   const canJump = !player.aiNextJumpAt || now >= player.aiNextJumpAt;
-  if (canJump && ((player.onGround && closeEnough) || stuckAtWall)) {
+  if (canJump && ((player.onGround && closeEnough) || player.wallTouch)) {
     const verticalGap = Math.max(220, player.y - target.y);
     const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
     player.input.jumpHeldMs = Math.min(650, 330 + verticalGap * 0.62 + Math.random() * 90 + (teamAssist ? 90 : 0));
@@ -653,6 +688,226 @@ function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   }
 
   player.input.seq += 1;
+}
+
+function updateStrongCpuInput(player: PlayerRuntime, room: RoomRuntime) {
+  const now = Date.now();
+  if (!player.aiNextThinkAt || now >= player.aiNextThinkAt) {
+    const lockedPlatform = player.aiTargetPlatformIndex === undefined ? undefined : cpuTargetPlatform(room, player.aiTargetPlatformIndex);
+    const remainingFlightMs = lockedPlatform && !player.onGround ? cpuRemainingFlightMs(player, lockedPlatform.y) : 0;
+    if (lockedPlatform && remainingFlightMs) {
+      const predicted = currentPlatform(lockedPlatform, now + remainingFlightMs);
+      const landingRange = cpuLandingRange(predicted);
+      const ratio = player.aiTargetLandingRatio ?? 0.5;
+      player.aiTargetX = clamp(predicted.x + predicted.w * ratio, landingRange.min, landingRange.max);
+      player.aiNextThinkAt = now + 80;
+    } else {
+      const plan = planCpuRoute(player, room, now);
+      if (plan) {
+        const error = (1 - player.aiSkill) * 100;
+        player.aiTargetX = clamp(plan.landingCenterX + Math.random() * error * 2 - error, plan.minLandingCenterX, plan.maxLandingCenterX);
+        player.aiTakeoffX = plan.takeoffCenterX;
+        player.aiTargetPlatformIndex = plan.platformIndex;
+        player.aiTargetLandingRatio = plan.landingRatio;
+        player.aiPlannedJumpHeldMs = plan.jumpHeldMs;
+      } else {
+        player.aiTargetX = undefined;
+        player.aiTakeoffX = undefined;
+        player.aiTargetPlatformIndex = undefined;
+        player.aiTargetLandingRatio = undefined;
+        player.aiPlannedJumpHeldMs = undefined;
+      }
+      player.aiNextThinkAt = now + 110 + Math.random() * 190;
+    }
+  }
+
+  const holdTakeoffLine = player.onGround || Boolean(player.aiSteerAt && now < player.aiSteerAt);
+  const desiredX = (holdTakeoffLine ? player.aiTakeoffX : player.aiTargetX) ?? player.x + stage.playerW / 2;
+  const deltaX = desiredX - (player.x + stage.playerW / 2);
+  player.input.left = deltaX < -18;
+  player.input.right = deltaX > 18;
+  player.input.jump = false;
+
+  const closeEnough = Math.abs(deltaX) < 28 + player.aiSkill * 18;
+  const canJump = !player.aiNextJumpAt || now >= player.aiNextJumpAt;
+  const targetIndex = player.aiTargetPlatformIndex;
+  const target = targetIndex === undefined ? undefined : cpuTargetPlatform(room, targetIndex);
+  const jumpHeldMs = player.aiPlannedJumpHeldMs ?? 500;
+  const verticalGap = target ? player.y + stage.playerH - target.y : 0;
+  const jumpTiming = cpuJumpTiming(verticalGap, jumpHeldMs);
+  const flightMs = jumpTiming?.flightMs ?? 0;
+  const targetReady = Boolean(target && flightMs && cpuPlatformSafeAt(target, now + flightMs));
+  if (canJump && targetReady && ((player.onGround && closeEnough) || player.wallTouch)) {
+    const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
+    const chargeError = (1 - player.aiSkill) * 55 * (Math.random() * 2 - 1);
+    player.input.jumpHeldMs = clamp(jumpHeldMs + chargeError + (teamAssist ? 90 : 0), 280, 650);
+    player.input.jumpRequestId += 1;
+    player.aiSteerAt = now + (jumpTiming?.ascentMs ?? 0) + 45;
+    player.aiNextJumpAt = now + 560 + Math.random() * 260;
+    player.aiNextThinkAt = now + 180;
+  } else if (canJump && target && !targetReady) {
+    player.aiNextThinkAt = now;
+  }
+
+  player.input.seq += 1;
+}
+
+function planCpuRoute(player: PlayerRuntime, room: RoomRuntime, now: number): CpuRoutePlan | undefined {
+  const platforms = stagePlatforms(room.mode, room.stageId);
+  const sourceY = player.y + stage.playerH;
+  const playerCenterX = player.x + stage.playerW / 2;
+  const sourcePlatform = player.standingOnPlatformIndex === null ? undefined : platforms[player.standingOnPlatformIndex];
+  const sourceRange = sourcePlatform ? cpuLandingRange(currentPlatform(sourcePlatform, now)) : { min: playerCenterX - 20, max: playerCenterX + 20 };
+  const routeTargets = [
+    ...platforms.map((platform, platformIndex) => ({ platform, platformIndex })),
+    { platform: CPU_GOAL_PLATFORM, platformIndex: CPU_GOAL_INDEX }
+  ];
+  const plans = routeTargets.flatMap(({ platform, platformIndex }) => {
+    const jump = cpuJumpPlan(sourceY - platform.y);
+    if (!jump) return [];
+    const landingAt = now + jump.flightMs;
+    const predicted = currentPlatform(platform, landingAt);
+    if (!cpuPlatformSafeAt(platform, landingAt)) return [];
+
+    const followUp = platformIndex === CPU_GOAL_INDEX ? undefined : bestCpuFollowUp(predicted, platformIndex, platforms, landingAt);
+    const landingRange = cpuLandingRange(predicted);
+    const followUpCenter = followUp?.targetCenterX ?? predicted.x + predicted.w / 2;
+    const desiredLandingCenterX = clamp(followUpCenter, landingRange.min, landingRange.max);
+    const platformAtAscent = currentPlatform(platform, now + jump.ascentMs);
+    const canPassThrough = platformIndex === CPU_GOAL_INDEX || platformAtAscent.active === false;
+    const airControlDistance = stage.moveSpeed * ((jump.flightMs - jump.ascentMs) / 1000) * 0.86;
+    const approach = cpuPlatformApproach(sourceRange, platformAtAscent, landingRange, desiredLandingCenterX, airControlDistance, canPassThrough);
+    if (!approach) return [];
+    const { takeoffCenterX, landingCenterX } = approach;
+    const approachDistance = Math.abs(playerCenterX - takeoffCenterX);
+    const hazardPenalty = predicted.kind === "vanish" ? 45 : predicted.kind === "moving" ? 20 : 0;
+    const deadEndPenalty = followUp || predicted.y <= stage.goalY + 520 ? 0 : 900;
+    const score = approachDistance * 0.72 - jump.rise * 0.72 + (followUp?.score ?? 0) * 0.58 + hazardPenalty + deadEndPenalty;
+    return [{
+      platformIndex,
+      takeoffCenterX,
+      landingCenterX,
+      landingRatio: (landingCenterX - predicted.x) / predicted.w,
+      minLandingCenterX: landingRange.min,
+      maxLandingCenterX: landingRange.max,
+      jumpHeldMs: jump.jumpHeldMs,
+      score
+    }];
+  });
+  return plans.sort((a, b) => a.score - b.score)[0];
+}
+
+function bestCpuFollowUp(source: Platform, sourceIndex: number, platforms: Platform[], now: number) {
+  const routeTargets = [
+    ...platforms.map((platform, platformIndex) => ({ platform, platformIndex })),
+    { platform: CPU_GOAL_PLATFORM, platformIndex: CPU_GOAL_INDEX }
+  ];
+  const options = routeTargets.flatMap(({ platform, platformIndex }) => {
+    if (platformIndex === sourceIndex) return [];
+    const jump = cpuJumpPlan(source.y - platform.y);
+    if (!jump) return [];
+    const landingAt = now + jump.flightMs;
+    const predicted = currentPlatform(platform, landingAt);
+    if (!cpuPlatformSafeAt(platform, landingAt)) return [];
+    const gap = horizontalPlatformGap(source, predicted);
+    const travel = stage.moveSpeed * (jump.flightMs / 1000) * 0.8;
+    if (gap > travel) return [];
+    const hazardPenalty = predicted.kind === "vanish" ? 35 : predicted.kind === "moving" ? 15 : 0;
+    return [{ targetCenterX: predicted.x + predicted.w / 2, score: gap - jump.rise * 0.42 + hazardPenalty }];
+  });
+  return options.sort((a, b) => a.score - b.score)[0];
+}
+
+function cpuTargetPlatform(room: RoomRuntime, platformIndex: number) {
+  return platformIndex === CPU_GOAL_INDEX ? CPU_GOAL_PLATFORM : stagePlatforms(room.mode, room.stageId)[platformIndex];
+}
+
+function cpuJumpPlan(rise: number) {
+  if (rise < 50 || rise > 470) return undefined;
+  const jumpHeldMs = clamp(315 + rise * 0.67, 330, 650);
+  const timing = cpuJumpTiming(rise, jumpHeldMs);
+  return timing ? { rise, jumpHeldMs, ...timing } : undefined;
+}
+
+function cpuFlightMs(rise: number, jumpHeldMs: number) {
+  return cpuJumpTiming(rise, jumpHeldMs)?.flightMs ?? 0;
+}
+
+function cpuJumpTiming(rise: number, jumpHeldMs: number) {
+  if (rise <= 0) return undefined;
+  const jumpPower = Math.min(stage.jumpMax, stage.jumpMin + Math.min(jumpHeldMs, 650) * 0.8);
+  const discriminant = jumpPower * jumpPower - 2 * stage.gravity * rise;
+  if (discriminant <= 0) return undefined;
+  const root = Math.sqrt(discriminant);
+  return {
+    ascentMs: ((jumpPower - root) / stage.gravity) * 1000,
+    flightMs: ((jumpPower + root) / stage.gravity) * 1000
+  };
+}
+
+function cpuRemainingFlightMs(player: PlayerRuntime, targetY: number) {
+  const displacement = targetY - stage.playerH - player.y;
+  const discriminant = player.vy * player.vy + 2 * stage.gravity * displacement;
+  if (discriminant <= 0) return 0;
+  const seconds = (-player.vy + Math.sqrt(discriminant)) / stage.gravity;
+  return seconds > 0 ? seconds * 1000 : 0;
+}
+
+function cpuPlatformSafeAt(platform: Platform, landingAt: number) {
+  return currentPlatform(platform, landingAt).active !== false && currentPlatform(platform, landingAt + CPU_LANDING_GRACE_MS).active !== false;
+}
+
+function cpuLandingRange(platform: Platform) {
+  const margin = stage.playerW / 2 + 10;
+  const center = platform.x + platform.w / 2;
+  return {
+    min: Math.min(center, platform.x + margin),
+    max: Math.max(center, platform.x + platform.w - margin)
+  };
+}
+
+function cpuPlatformApproach(
+  sourceRange: { min: number; max: number },
+  targetAtAscent: Platform,
+  landingRange: { min: number; max: number },
+  desiredLandingCenterX: number,
+  airControlDistance: number,
+  canPassThrough: boolean
+) {
+  if (canPassThrough) {
+    const takeoffCenterX = clamp(desiredLandingCenterX, sourceRange.min, sourceRange.max);
+    const minLanding = Math.max(landingRange.min, takeoffCenterX - airControlDistance);
+    const maxLanding = Math.min(landingRange.max, takeoffCenterX + airControlDistance);
+    if (minLanding > maxLanding) return undefined;
+    return { takeoffCenterX, landingCenterX: clamp(desiredLandingCenterX, minLanding, maxLanding) };
+  }
+
+  const clearance = stage.playerW / 2 + 10;
+  const left = clamp(targetAtAscent.x - clearance, sourceRange.min, sourceRange.max);
+  const right = clamp(targetAtAscent.x + targetAtAscent.w + clearance, sourceRange.min, sourceRange.max);
+  const candidates = [left, right]
+    .filter((candidate, index) => index === 0
+      ? candidate <= targetAtAscent.x - stage.playerW / 2 - 4
+      : candidate >= targetAtAscent.x + targetAtAscent.w + stage.playerW / 2 + 4)
+    .flatMap((takeoffCenterX) => {
+      const minLanding = Math.max(landingRange.min, takeoffCenterX - airControlDistance);
+      const maxLanding = Math.min(landingRange.max, takeoffCenterX + airControlDistance);
+      if (minLanding > maxLanding) return [];
+      const landingCenterX = clamp(desiredLandingCenterX, minLanding, maxLanding);
+      return [{ takeoffCenterX, landingCenterX, score: Math.abs(landingCenterX - desiredLandingCenterX) }];
+    });
+  const best = candidates.sort((a, b) => a.score - b.score)[0];
+  return best ? { takeoffCenterX: best.takeoffCenterX, landingCenterX: best.landingCenterX } : undefined;
+}
+
+function horizontalPlatformGap(from: Platform, to: Platform) {
+  if (from.x + from.w < to.x) return to.x - (from.x + from.w);
+  if (to.x + to.w < from.x) return from.x - (to.x + to.w);
+  return 0;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function indexedCollisionPlatforms(room: Pick<RoomRuntime, "mode" | "stageId">, now: number) {
