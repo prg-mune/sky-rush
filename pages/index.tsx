@@ -283,7 +283,7 @@ export default function Home() {
               <p className="eyebrow">Entry Gate</p>
               <h2>ログイン</h2>
             </div>
-            <span className="panelBadge">v1.0 · build {BUILD_COMMIT}</span>
+            <span className="panelBadge">v1.1 · build {BUILD_COMMIT}</span>
           </div>
           <label>
             プレイヤー名

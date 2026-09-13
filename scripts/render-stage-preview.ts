@@ -25,7 +25,7 @@ const previews: Array<{
     id: "battle_03_cloud_jumble",
     mode: "battle",
     title: "雲間ジャンブル",
-    note: "5000mの中級コース。消える床を多めにしつつ、左右へ自然に散らばる配置です。",
+    note: "5000mの中級コース。消える床を多めにしつつ、3枚の移動床で左右へ揺さぶる配置です。",
     bands: [
       { altitude: 270, label: "序盤: 広めに散る" },
       { altitude: 1590, label: "中盤: 消える床多め" },
@@ -37,7 +37,7 @@ const previews: Array<{
     id: "battle_07_cup_qualifier",
     mode: "battle",
     title: "スカイラッシュ杯 予選",
-    note: "5000mの20人対戦向けコース。序盤は広く、中盤で合流し、終盤は1ルート寄りに収束します。",
+    note: "5000mの20人対戦向けコース。4枚の移動床を交え、序盤の分散から終盤の競争へ収束します。",
     bands: [
       { altitude: 270, label: "序盤: 3ルートでばらける" },
       { altitude: 1590, label: "中盤: 合流と押し合い" },
@@ -49,7 +49,7 @@ const previews: Array<{
     id: "battle_10_everest_rush",
     mode: "battle",
     title: "エベレスト・ラッシュ",
-    note: "8000mの超上級コース。短い消える床が中心で、最後まで集中力が必要です。",
+    note: "8000mの超上級コース。短い消える床を主役に、4枚の移動床が高所で左右の判断を迫ります。",
     bands: [
       { altitude: 500, label: "序盤: 足場が細くなる" },
       { altitude: 2500, label: "中盤: 消える床が主役" },

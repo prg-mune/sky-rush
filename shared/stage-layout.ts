@@ -63,10 +63,13 @@ const vanishPatterns = {
 } as const;
 
 const stretchPatterns = {
-  standard: { w: 300, minW: 190, maxW: 390, periodMs: 3600 }
+  compact: { w: 240, minW: 150, maxW: 300, periodMs: 3000 },
+  standard: { w: 300, minW: 190, maxW: 390, periodMs: 3600 },
+  large: { w: 360, minW: 240, maxW: 430, periodMs: 3400 }
 } as const;
 
 const movingPatterns = {
+  compact: { w: 240, periodMs: 2800 },
   slow: { w: 330, periodMs: 4200 },
   standard: { w: 300, periodMs: 3000 }
 } as const;
@@ -452,46 +455,46 @@ function cloudJumblePlatforms(climbHeight: number) {
   const startY = spawnY + stage.playerH;
   const metrics = { spawnY, goalY: stage.goalY };
   const platforms: Platform[] = [
-    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+    { x: stage.spawnX - barWidths.start / 2, y: startY, w: barWidths.start, h: 30 },
 
-    { x: 260, y: 4890, w: 380, h: 24, kind: "vanish", visibleMs: 3100, hiddenMs: 900, phaseMs: 100 },
-    { x: 950, y: 4890, w: 390, h: 24 },
-    { x: 1560, y: 4890, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 900 },
+    vanishBar(260, 4890, barWidths.large, "easy", 100),
+    { x: 950, y: 4890, w: barWidths.large, h: 24 },
+    vanishBar(1560, 4890, barWidths.large, "easy", 900),
 
-    { x: 650, y: 4560, w: 350, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1100, phaseMs: 400 },
-    { x: 1260, y: 4560, w: 360, h: 24 },
+    vanishBar(650, 4560, barWidths.large, "easy", 400),
+    { x: 1260, y: 4560, w: barWidths.large, h: 24 },
 
-    { x: 360, y: 4230, w: 330, h: 24 },
-    { x: 1030, y: 4230, w: 340, h: 24, kind: "vanish", visibleMs: 2700, hiddenMs: 1000, phaseMs: 1200 },
+    { x: 360, y: 4230, w: barWidths.medium, h: 24 },
+    vanishBar(1030, 4230, barWidths.medium, "standard", 1200),
 
-    { x: 1410, y: 3900, w: 330, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1200, phaseMs: 500 },
-    { x: 760, y: 3900, w: 330, h: 24 },
+    movingBar(3900, 1200, 1420, "slow", 500),
+    { x: 760, y: 3900, w: barWidths.medium, h: 24 },
 
-    { x: 470, y: 3570, w: 320, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1100, phaseMs: 1600 },
-    { x: 1110, y: 3570, w: 330, h: 24, kind: "stretch", minW: 210, maxW: 390, periodMs: 3500, phaseMs: 700 },
+    vanishBar(470, 3570, barWidths.medium, "standard", 1600),
+    stretchBar(1110, 3570, "standard", 700),
 
-    { x: 1430, y: 3240, w: 310, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 300 },
-    { x: 740, y: 3240, w: 320, h: 24 },
+    vanishBar(1430, 3240, barWidths.medium, "standard", 300),
+    { x: 740, y: 3240, w: barWidths.medium, h: 24 },
 
-    { x: 520, y: 2910, w: 300, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1200, phaseMs: 1100 },
-    { x: 1160, y: 2910, w: 310, h: 24 },
+    vanishBar(520, 2910, barWidths.medium, "standard", 1100),
+    { x: 1160, y: 2910, w: barWidths.medium, h: 24 },
 
-    { x: 1470, y: 2580, w: 300, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1300, phaseMs: 600 },
-    { x: 830, y: 2580, w: 300, h: 24, kind: "vanish", visibleMs: 2700, hiddenMs: 1000, phaseMs: 1700 },
+    vanishBar(1470, 2580, barWidths.medium, "standard", 600),
+    vanishBar(830, 2580, barWidths.medium, "standard", 1700),
 
-    { x: 570, y: 2250, w: 300, h: 24 },
-    { x: 1130, y: 2250, w: 300, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 900 },
+    movingBar(2250, 500, 800, "standard", 1200),
+    vanishBar(1130, 2250, barWidths.medium, "standard", 900),
 
-    { x: 1370, y: 1920, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1300, phaseMs: 200 },
-    { x: 780, y: 1920, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3300, phaseMs: 1000 },
+    vanishBar(1370, 1920, barWidths.medium, "hard", 200),
+    stretchBar(780, 1920, "standard", 1000),
 
-    { x: 1020, y: 1590, w: 300, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 1500 },
-    { x: 610, y: 1260, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 800 },
-    { x: 1190, y: 1260, w: 290, h: 24 },
+    vanishBar(1020, 1590, barWidths.medium, "hard", 1500),
+    vanishBar(610, 1260, barWidths.medium, "hard", 800),
+    { x: 1190, y: 1260, w: barWidths.medium, h: 24 },
 
-    { x: 930, y: 930, w: 300, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 400 },
-    { x: 1180, y: 650, w: 320, h: 24 },
-    { x: 850, y: 420, w: 300, h: 24 }
+    vanishBar(930, 930, barWidths.medium, "hard", 400),
+    movingBar(650, 1000, 1250, "standard", 700),
+    { x: 850, y: 420, w: barWidths.medium, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
@@ -501,47 +504,47 @@ function cupQualifierPlatforms(climbHeight: number) {
   const startY = spawnY + stage.playerH;
   const metrics = { spawnY, goalY: stage.goalY };
   const platforms: Platform[] = [
-    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+    { x: stage.spawnX - barWidths.start / 2, y: startY, w: barWidths.start, h: 30 },
 
-    { x: 230, y: 4890, w: 430, h: 24 },
-    { x: 900, y: 4890, w: 420, h: 24, kind: "stretch", minW: 250, maxW: 480, periodMs: 3600, phaseMs: 500 },
-    { x: 1530, y: 4890, w: 390, h: 24 },
+    { x: 230, y: 4890, w: barWidths.extraLarge, h: 24 },
+    stretchBar(900, 4890, "large", 500),
+    { x: 1530, y: 4890, w: barWidths.large, h: 24 },
 
-    { x: 570, y: 4560, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 900, phaseMs: 700 },
-    { x: 1180, y: 4560, w: 380, h: 24 },
+    vanishBar(570, 4560, barWidths.large, "easy", 700),
+    { x: 1180, y: 4560, w: barWidths.large, h: 24 },
 
-    { x: 350, y: 4230, w: 340, h: 24 },
-    { x: 1030, y: 4230, w: 350, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1000, phaseMs: 1300 },
-    { x: 1530, y: 4230, w: 310, h: 24, kind: "stretch", minW: 190, maxW: 390, periodMs: 3300, phaseMs: 200 },
+    { x: 350, y: 4230, w: barWidths.medium, h: 24 },
+    vanishBar(1030, 4230, barWidths.large, "standard", 1300),
+    movingBar(4230, 1400, 1600, "slow", 200),
 
-    { x: 710, y: 3900, w: 330, h: 24 },
-    { x: 1320, y: 3900, w: 330, h: 24, kind: "vanish", visibleMs: 2700, hiddenMs: 1100, phaseMs: 800 },
+    { x: 710, y: 3900, w: barWidths.medium, h: 24 },
+    vanishBar(1320, 3900, barWidths.medium, "standard", 800),
 
-    { x: 440, y: 3570, w: 310, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 1000, phaseMs: 1600 },
-    { x: 1060, y: 3570, w: 330, h: 24, kind: "stretch", minW: 200, maxW: 390, periodMs: 3500, phaseMs: 900 },
+    vanishBar(440, 3570, barWidths.medium, "standard", 1600),
+    stretchBar(1060, 3570, "standard", 900),
 
-    { x: 1430, y: 3240, w: 310, h: 24 },
-    { x: 770, y: 3240, w: 320, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1100, phaseMs: 400 },
+    movingBar(3240, 1200, 1450, "slow", 300),
+    vanishBar(770, 3240, barWidths.medium, "standard", 400),
 
-    { x: 520, y: 2910, w: 300, h: 24 },
-    { x: 1160, y: 2910, w: 310, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 1200 },
+    { x: 520, y: 2910, w: barWidths.medium, h: 24 },
+    vanishBar(1160, 2910, barWidths.medium, "standard", 1200),
 
-    { x: 1430, y: 2580, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3200, phaseMs: 600 },
-    { x: 830, y: 2580, w: 300, h: 24 },
+    stretchBar(1430, 2580, "standard", 600),
+    { x: 830, y: 2580, w: barWidths.medium, h: 24 },
 
-    { x: 560, y: 2250, w: 300, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 900 },
-    { x: 1130, y: 2250, w: 300, h: 24 },
+    vanishBar(560, 2250, barWidths.medium, "standard", 900),
+    { x: 1130, y: 2250, w: barWidths.medium, h: 24 },
 
-    { x: 790, y: 1920, w: 290, h: 24, kind: "stretch", minW: 190, maxW: 350, periodMs: 3300, phaseMs: 1200 },
-    { x: 1370, y: 1920, w: 290, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1200, phaseMs: 300 },
+    stretchBar(790, 1920, "standard", 1200),
+    movingBar(1920, 1250, 1450, "standard", 300),
 
-    { x: 1010, y: 1590, w: 300, h: 24 },
-    { x: 650, y: 1260, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1500 },
-    { x: 1190, y: 1260, w: 290, h: 24 },
+    { x: 1010, y: 1590, w: barWidths.medium, h: 24 },
+    vanishBar(650, 1260, barWidths.medium, "hard", 1500),
+    { x: 1190, y: 1260, w: barWidths.medium, h: 24 },
 
-    { x: 930, y: 930, w: 290, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 600 },
-    { x: 1180, y: 650, w: 310, h: 24, kind: "stretch", minW: 200, maxW: 350, periodMs: 3100, phaseMs: 1000 },
-    { x: 850, y: 420, w: 300, h: 24 }
+    vanishBar(930, 930, barWidths.medium, "hard", 600),
+    movingBar(650, 1000, 1250, "standard", 1000),
+    { x: 850, y: 420, w: barWidths.medium, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
@@ -551,44 +554,44 @@ function everestRushPlatforms(climbHeight: number) {
   const startY = spawnY + stage.playerH;
   const metrics = { spawnY, goalY: stage.goalY };
   const platforms: Platform[] = [
-    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+    { x: stage.spawnX - barWidths.start / 2, y: startY, w: barWidths.start, h: 30 },
 
-    { x: 270, y: 7890, w: 380, h: 24 },
-    { x: 900, y: 7890, w: 380, h: 24, kind: "vanish", visibleMs: 2600, hiddenMs: 1000, phaseMs: 300 },
-    { x: 1510, y: 7890, w: 340, h: 24 },
+    { x: 270, y: 7890, w: barWidths.large, h: 24 },
+    vanishBar(900, 7890, barWidths.large, "easy", 300),
+    { x: 1510, y: 7890, w: barWidths.medium, h: 24 },
 
-    { x: 610, y: 7560, w: 320, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 1100, phaseMs: 900 },
-    { x: 1240, y: 7560, w: 320, h: 24 },
+    vanishBar(610, 7560, barWidths.medium, "standard", 900),
+    { x: 1240, y: 7560, w: barWidths.medium, h: 24 },
 
-    { x: 980, y: 7230, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 360, periodMs: 3300, phaseMs: 500 },
-    { x: 560, y: 6900, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1200, phaseMs: 1300 },
-    { x: 1040, y: 6570, w: 300, h: 24 },
+    stretchBar(980, 7230, "standard", 500),
+    vanishBar(560, 6900, barWidths.medium, "standard", 1300),
+    movingBar(6570, 950, 1100, "slow", 700),
 
-    { x: 1410, y: 6240, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1200, phaseMs: 700 },
-    { x: 1010, y: 5910, w: 290, h: 24, kind: "vanish", visibleMs: 2400, hiddenMs: 1100, phaseMs: 1600 },
+    vanishBar(1410, 6240, barWidths.medium, "hard", 700),
+    vanishBar(1010, 5910, barWidths.medium, "hard", 1600),
 
-    { x: 1120, y: 5580, w: 280, h: 24, kind: "stretch", minW: 180, maxW: 340, periodMs: 3200, phaseMs: 1000 },
-    { x: 850, y: 5250, w: 280, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1300, phaseMs: 400 },
-    { x: 1080, y: 4920, w: 280, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1100 },
+    stretchBar(1120, 5580, "standard", 1000),
+    vanishBar(850, 5250, barWidths.medium, "hard", 400),
+    vanishBar(1080, 4920, barWidths.medium, "hard", 1100),
 
-    { x: 910, y: 4590, w: 270, h: 24 },
-    { x: 590, y: 4260, w: 260, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1700 },
-    { x: 950, y: 3930, w: 270, h: 24, kind: "stretch", minW: 170, maxW: 330, periodMs: 3100, phaseMs: 600 },
+    movingBar(4590, 800, 1000, "standard", 1500),
+    vanishBar(590, 4260, barWidths.medium, "hard", 1700),
+    stretchBar(950, 3930, "standard", 600),
 
-    { x: 780, y: 3600, w: 260, h: 24, kind: "vanish", visibleMs: 2100, hiddenMs: 1400, phaseMs: 200 },
-    { x: 1170, y: 3270, w: 260, h: 24, kind: "vanish", visibleMs: 2200, hiddenMs: 1300, phaseMs: 1000 },
+    vanishBar(780, 3600, barWidths.medium, "hard", 200),
+    vanishBar(1170, 3270, barWidths.medium, "hard", 1000),
 
-    { x: 900, y: 2940, w: 250, h: 24 },
-    { x: 640, y: 2610, w: 250, h: 24, kind: "vanish", visibleMs: 2100, hiddenMs: 1400, phaseMs: 1500 },
-    { x: 980, y: 2280, w: 250, h: 24, kind: "vanish", visibleMs: 2000, hiddenMs: 1400, phaseMs: 500 },
+    movingBar(2940, 850, 1050, "compact", 300),
+    vanishBar(640, 2610, barWidths.small, "hard", 1500),
+    vanishBar(980, 2280, barWidths.small, "hard", 500),
 
-    { x: 850, y: 1950, w: 240, h: 24, kind: "stretch", minW: 160, maxW: 300, periodMs: 3000, phaseMs: 1200 },
-    { x: 1120, y: 1620, w: 240, h: 24, kind: "vanish", visibleMs: 2000, hiddenMs: 1400, phaseMs: 900 },
-    { x: 820, y: 1290, w: 230, h: 24, kind: "vanish", visibleMs: 2500, hiddenMs: 900, phaseMs: 900 },
+    stretchBar(850, 1950, "compact", 1200),
+    vanishBar(1120, 1620, barWidths.small, "hard", 900),
+    vanishBar(820, 1290, barWidths.small, "hard", 100),
 
-    { x: 1100, y: 960, w: 230, h: 24, kind: "vanish", visibleMs: 1900, hiddenMs: 1450, phaseMs: 1300 },
-    { x: 880, y: 650, w: 230, h: 24, kind: "stretch", minW: 150, maxW: 290, periodMs: 2800, phaseMs: 700 },
-    { x: 1040, y: 420, w: 240, h: 24, kind: "vanish", visibleMs: 2300, hiddenMs: 1100, phaseMs: 400 }
+    vanishBar(1100, 960, barWidths.small, "hard", 1300),
+    movingBar(650, 900, 980, "compact", 700),
+    vanishBar(1040, 420, barWidths.small, "hard", 400)
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
