@@ -271,6 +271,44 @@ input[type="range"] {
   line-height: 1.4;
 }
 
+.difficultyPicker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #cbdce8;
+}
+
+.difficultyPicker > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid #385c73;
+  border-radius: 8px;
+  padding: 5px;
+  background: #0e1922;
+}
+
+.difficultyPicker button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-color: transparent;
+  padding: 8px 10px;
+  background: transparent;
+}
+
+.difficultyPicker button.active {
+  border-color: #ffd47a;
+  background: #f2b84b;
+  color: #17202a;
+}
+
+.difficultyPicker small {
+  font-size: 10px;
+  opacity: 0.78;
+}
+
 .stagePicker {
   display: grid;
   gap: 8px;
@@ -727,6 +765,10 @@ input[type="range"] {
 
 .barLegend .vanish {
   background: #b197fc;
+}
+
+.barLegend .moving {
+  background: #4dabf7;
 }
 
 .gameWrap {

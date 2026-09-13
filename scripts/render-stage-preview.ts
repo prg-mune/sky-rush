@@ -13,7 +13,7 @@ const previews: Array<{
     id: "battle_01_garden",
     mode: "battle",
     title: "はじまりの空庭",
-    note: "昔の自然な散らばり感をベースにした初級コース。黄色は消える床、紫は伸縮バーです。",
+    note: "昔の自然な散らばり感をベースにした初級コース。通常床は黄・緑・水色の順で並びます。",
     bands: [
       { altitude: 225, label: "序盤: 横に散る" },
       { altitude: 720, label: "中盤: ルート選択" },
@@ -79,11 +79,11 @@ function sx(x: number) {
   return padding + x * scale;
 }
 
-function platformColor(kind?: string) {
-  if (kind === "vanish") return "#f2c960";
-  if (kind === "stretch") return "#a78bfa";
+function platformColor(kind: string | undefined, index: number) {
+  if (kind === "vanish") return "#b197fc";
+  if (kind === "stretch") return "#f783ac";
   if (kind === "moving") return "#4dabf7";
-  return "#6fc89a";
+  return ["#e9c46a", "#74c69d", "#89cff0"][index % 3];
 }
 
 function renderStage(preview: (typeof previews)[number], offsetY: number) {
@@ -111,7 +111,7 @@ function renderStage(preview: (typeof previews)[number], offsetY: number) {
     return `
     <g>
       ${movementRange}
-      <rect x="${sx(platform.x).toFixed(1)}" y="${sy(platform.y).toFixed(1)}" width="${(platform.w * scale).toFixed(1)}" height="${Math.max(8, platform.h * scale).toFixed(1)}" rx="3" fill="${platformColor(platform.kind)}" stroke="#dce7ee" stroke-width="2" />
+      <rect x="${sx(platform.x).toFixed(1)}" y="${sy(platform.y).toFixed(1)}" width="${(platform.w * scale).toFixed(1)}" height="${Math.max(8, platform.h * scale).toFixed(1)}" rx="3" fill="${platformColor(platform.kind, index)}" stroke="#dce7ee" stroke-width="2" />
       <text x="${sx(platform.x + platform.w / 2).toFixed(1)}" y="${(sy(platform.y) - 6).toFixed(1)}" text-anchor="middle">${index} / ${altitude}m${platform.kind ? ` / ${platform.kind}` : ""}</text>
     </g>`;
   }).join("");
@@ -184,7 +184,7 @@ const html = `<!doctype html>
 <body>
   <header>
     <h1>Sky Rush コースプレビュー</h1>
-    <p>バトル4コースとチーム登山1コース。黄色は消える床、紫は伸縮バー、水色の半透明帯は移動床の可動範囲です。</p>
+    <p>通常床は黄・緑・水色、伸縮床はピンク、消える床は紫、移動床は水色です。半透明帯は移動床の可動範囲を示します。</p>
   </header>
   ${svg}
 </body>

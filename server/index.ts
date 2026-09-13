@@ -4,6 +4,7 @@ import { Server, type Socket as IOSocket } from "socket.io";
 import type {
   ClientInput,
   ClientToServerEvents,
+  DifficultyMode,
   EffectBurst,
   GameMode,
   PlayerSnapshot,
@@ -97,6 +98,7 @@ function roomSummary(room: RoomRuntime): RoomSummary {
     id: room.id,
     name: room.name,
     mode: room.mode,
+    difficulty: room.difficulty,
     stageId: room.stageId,
     playerCount: room.players.size,
     maxPlayers: room.maxPlayers,
@@ -361,7 +363,7 @@ app.prepare().then(() => {
 
     socket.on("listRooms", () => socket.emit("rooms", [...rooms.values()].map(roomSummary)));
 
-    socket.on("createRoom", ({ name, mode, maxPlayers, stageId }) => {
+    socket.on("createRoom", ({ name, mode, difficulty, maxPlayers, stageId }) => {
       if (!socket.data.playerName) return socket.emit("errorMessage", "ログインしてください");
       const id = `room-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const normalizedStageId = normalizeStageId(mode, stageId);
@@ -369,6 +371,7 @@ app.prepare().then(() => {
         id,
         name: name.trim().slice(0, 24) || `${socket.data.playerName}の部屋`,
         mode,
+        difficulty: normalizeDifficulty(difficulty),
         stageId: normalizedStageId,
         maxPlayers: Math.max(2, Math.min(20, maxPlayers)),
         ownerId: socket.id,
@@ -602,6 +605,10 @@ function nextHumanTeam(room: RoomRuntime) {
 function sanitizePlayerColor(color: string) {
   const normalized = color.trim().toLowerCase();
   return PLAYER_COLORS.includes(normalized) ? normalized : "";
+}
+
+function normalizeDifficulty(difficulty: DifficultyMode): DifficultyMode {
+  return difficulty === "hard" ? "hard" : "normal";
 }
 
 function updateCpuInput(player: PlayerRuntime, room: RoomRuntime) {

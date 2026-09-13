@@ -107,6 +107,7 @@ socket.on("connect", async () => {
     socket.emit("createRoom", {
       name: `CPU20 Load ${Date.now().toString(36)}`,
       mode: "battle",
+      difficulty: "normal",
       maxPlayers: 20,
       stageId
     });

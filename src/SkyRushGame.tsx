@@ -140,23 +140,26 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
             color: "#17202a",
             fontStyle: "bold"
           }).setOrigin(0.5);
+          const isHardDifficulty = roomRef.current.difficulty === "hard";
+          const hardBodyColor = 0x8796a3;
+          const hardAccentColor = 0xd8e0e6;
           activePlatforms(roomRef.current.mode, roomRef.current.stageId).forEach((platform, index) => {
             const isStretch = platform.kind === "stretch";
             const isVanish = platform.kind === "vanish";
             const isMoving = platform.kind === "moving";
-            const color = isStretch ? 0xf783ac : isVanish ? 0xb197fc : isMoving ? 0x4dabf7 : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
-            const strokeColor = isStretch ? 0xffdeeb : isVanish ? 0xe5dbff : isMoving ? 0xd0ebff : 0xffffff;
+            const color = isHardDifficulty ? hardBodyColor : isStretch ? 0xf783ac : isVanish ? 0xb197fc : isMoving ? 0x4dabf7 : index % 3 === 1 ? 0x74c69d : index % 3 === 2 ? 0x89cff0 : 0xe9c46a;
+            const strokeColor = isHardDifficulty ? hardAccentColor : isStretch ? 0xffdeeb : isVanish ? 0xe5dbff : isMoving ? 0xd0ebff : 0xffffff;
             const body = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, platform.w, platform.h, color).setStrokeStyle(2, strokeColor, 0.7);
             if (isStretch) {
-              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, Math.max(20, platform.w - 34), 6, 0xffdeeb, 0.75);
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + platform.h / 2, Math.max(20, platform.w - 34), 6, isHardDifficulty ? hardAccentColor : 0xffdeeb, 0.75);
               animatedPlatforms.push({ platform, body, cap });
             }
             if (isVanish) {
-              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, 0xe5dbff, 0.82);
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, isHardDifficulty ? hardAccentColor : 0xe5dbff, 0.82);
               animatedPlatforms.push({ platform, body, cap });
             }
             if (isMoving) {
-              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, 0xd0ebff, 0.82);
+              const cap = this.add.rectangle(platform.x + platform.w / 2, platform.y + 5, Math.max(28, platform.w - 28), 5, isHardDifficulty ? hardAccentColor : 0xd0ebff, 0.82);
               animatedPlatforms.push({ platform, body, cap });
             }
           });

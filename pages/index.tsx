@@ -3,6 +3,7 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
+  DifficultyMode,
   GameMode,
   PlayerSnapshot,
   ResultRow,
@@ -46,6 +47,7 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [roomName, setRoomName] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
+  const [difficulty, setDifficulty] = useState<DifficultyMode>("normal");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [spectatingPlayerId, setSpectatingPlayerId] = useState<string | undefined>();
@@ -174,7 +176,7 @@ export default function Home() {
       return;
     }
     setNotice({ kind: "info", text: "部屋を作成しています" });
-    socket?.emit("createRoom", { name: roomName, mode, maxPlayers, stageId });
+    socket?.emit("createRoom", { name: roomName, mode, difficulty, maxPlayers, stageId });
   }
 
   function joinSelectedRoom(roomId: string) {
@@ -218,7 +220,7 @@ export default function Home() {
         <span className={`statusDot ${connectionStatus}`} />
         <strong>{connectionStatusLabel(connectionStatus)}</strong>
         <span>{screenLabel(screen)}</span>
-        {room && <span>{room.name} / {stageLabel(room.stageId)}</span>}
+        {room && <span>{room.name} / {stageLabel(room.stageId)} / {difficultyLabel(room.difficulty)}</span>}
       </div>
 
       {notice && (
@@ -262,7 +264,12 @@ export default function Home() {
                   <span><i className="normal" />通常</span>
                   <span><i className="stretch" />伸縮</span>
                   <span><i className="vanish" />消える</span>
+                  <span><i className="moving" />移動</span>
                 </div>
+              </article>
+              <article className="ruleCard">
+                <h3>難易度</h3>
+                <p>ノーマルは足場の種類ごとに色が付きます。ハードではゴール以外の足場がグレーになります。</p>
               </article>
             </div>
           </div>
@@ -327,6 +334,23 @@ export default function Home() {
                 <option value="team">チーム登山</option>
               </select>
             </label>
+            <div className="difficultyPicker">
+              <span>難易度</span>
+              <div role="group" aria-label="難易度">
+                {(["normal", "hard"] as DifficultyMode[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={difficulty === option ? "active" : ""}
+                    aria-pressed={difficulty === option}
+                    onClick={() => setDifficulty(option)}
+                  >
+                    <strong>{option.toUpperCase()}</strong>
+                    <small>{option === "normal" ? "カラーあり" : "ノーカラー"}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="stagePicker">
               <span className="stagePickerLabel">ステージ</span>
               <div className="stageOptions">
@@ -374,6 +398,7 @@ export default function Home() {
                     <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {stageLabel(entry.stageId)}</span>
                     <span className="roomBadges">
                       <small>{entry.playerCount} / {entry.maxPlayers}</small>
+                      <small>{difficultyLabel(entry.difficulty)}</small>
                       <small>{entry.started ? "STARTED" : "OPEN"}</small>
                     </span>
                   </div>
@@ -399,6 +424,7 @@ export default function Home() {
               <span><strong>{room.players.length}</strong><small>/ {room.maxPlayers}</small></span>
               <span><strong>{room.players.filter((player) => player.connected).length}</strong><small>Online</small></span>
               <span><strong>{stageClimbHeight(room.stageId)}m</strong><small>Course</small></span>
+              <span><strong>{difficultyLabel(room.difficulty)}</strong><small>Difficulty</small></span>
             </div>
           </div>
           <div className="players">
@@ -553,6 +579,10 @@ function connectionStatusLabel(status: ConnectionStatus) {
     offline: "OFFLINE"
   };
   return labels[status];
+}
+
+function difficultyLabel(difficulty: DifficultyMode) {
+  return difficulty === "hard" ? "HARD" : "NORMAL";
 }
 
 function noticeLabel(kind: NoticeKind) {

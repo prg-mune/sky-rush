@@ -1,4 +1,5 @@
 export type GameMode = "battle" | "team";
+export type DifficultyMode = "normal" | "hard";
 export type StageId =
   | "battle_01_garden"
   | "battle_02_breeze"
@@ -21,6 +22,7 @@ export type RoomSummary = {
   id: string;
   name: string;
   mode: GameMode;
+  difficulty: DifficultyMode;
   stageId: StageId;
   playerCount: number;
   maxPlayers: number;
@@ -49,6 +51,7 @@ export type RoomState = {
   id: string;
   name: string;
   mode: GameMode;
+  difficulty: DifficultyMode;
   stageId: StageId;
   maxPlayers: number;
   ownerId: string;
@@ -100,7 +103,7 @@ export type ServerToClientEvents = {
 export type ClientToServerEvents = {
   login: (payload: { playerName: string; password: string; sessionId?: string }, cb: (ok: boolean, message?: string, sessionId?: string) => void) => void;
   listRooms: () => void;
-  createRoom: (payload: { name: string; mode: GameMode; maxPlayers: number; stageId: StageId }) => void;
+  createRoom: (payload: { name: string; mode: GameMode; difficulty: DifficultyMode; maxPlayers: number; stageId: StageId }) => void;
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   startGame: () => void;

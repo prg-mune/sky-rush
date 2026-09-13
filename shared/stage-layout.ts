@@ -48,6 +48,29 @@ export const stageHeights = {
   advanced: 8000
 };
 
+const barWidths = {
+  small: 240,
+  medium: 300,
+  large: 360,
+  extraLarge: 430,
+  start: 1900
+} as const;
+
+const vanishPatterns = {
+  easy: { visibleMs: 3000, hiddenMs: 900 },
+  standard: { visibleMs: 2500, hiddenMs: 1100 },
+  hard: { visibleMs: 2000, hiddenMs: 1400 }
+} as const;
+
+const stretchPatterns = {
+  standard: { w: 300, minW: 190, maxW: 390, periodMs: 3600 }
+} as const;
+
+const movingPatterns = {
+  slow: { w: 330, periodMs: 4200 },
+  standard: { w: 300, periodMs: 3000 }
+} as const;
+
 const balancedPlatforms: Platform[] = [
   { x: 520, y: 4060, w: 1160, h: 28 },
   { x: 260, y: 3780, w: 420, h: 24 },
@@ -347,6 +370,18 @@ function loosenStackedPlatforms(platforms: Platform[], metrics: { spawnY: number
   return sorted;
 }
 
+function vanishBar(x: number, y: number, w: number, pattern: keyof typeof vanishPatterns, phaseMs: number): Platform {
+  return { x, y, w, h: 24, kind: "vanish", ...vanishPatterns[pattern], phaseMs };
+}
+
+function stretchBar(x: number, y: number, pattern: keyof typeof stretchPatterns, phaseMs: number): Platform {
+  return { x, y, h: 24, kind: "stretch", ...stretchPatterns[pattern], phaseMs };
+}
+
+function movingBar(y: number, minX: number, maxX: number, pattern: keyof typeof movingPatterns, phaseMs: number): Platform {
+  return { x: minX, y, h: 24, kind: "moving", minX, maxX, ...movingPatterns[pattern], phaseMs };
+}
+
 export function stagePlatforms(mode: GameMode, stageId: StageId) {
   const normalizedStageId = normalizeStageId(mode, stageId);
   const selected = stageDefinitions[normalizedStageId];
@@ -369,22 +404,22 @@ function gardenPlatforms(climbHeight: number) {
   const startY = spawnY + stage.playerH;
   const metrics = { spawnY, goalY: stage.goalY };
   const platforms: Platform[] = [
-    { x: stage.spawnX - 950, y: startY, w: 1900, h: 30 },
+    { x: stage.spawnX - barWidths.start / 2, y: startY, w: barWidths.start, h: 30 },
 
-    { x: 260, y: 1935, w: 430, h: 24 },
-    { x: 980, y: 1935, w: 430, h: 24, kind: "vanish", visibleMs: 3200, hiddenMs: 900, phaseMs: 200 },
+    { x: 260, y: 1935, w: barWidths.extraLarge, h: 24 },
+    vanishBar(980, 1935, barWidths.extraLarge, "easy", 200),
 
-    { x: 760, y: 1690, w: 360, h: 24 },
+    { x: 760, y: 1690, w: barWidths.large, h: 24 },
 
-    { x: 390, y: 1440, w: 360, h: 24, kind: "vanish", visibleMs: 3000, hiddenMs: 1000, phaseMs: 900 },
-    { x: 1040, y: 1440, w: 370, h: 24 },
-    { x: 1500, y: 1190, w: 330, h: 24 },
+    vanishBar(390, 1440, barWidths.large, "easy", 900),
+    { x: 1040, y: 1440, w: barWidths.large, h: 24 },
+    movingBar(1190, 1170, 1499, "slow", 500),
 
-    { x: 1070, y: 950, w: 300, h: 24, kind: "stretch", minW: 190, maxW: 390, periodMs: 3600, phaseMs: 700 },
+    stretchBar(1070, 950, "standard", 700),
 
-    { x: 760, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 500 },
-    { x: 1280, y: 700, w: 300, h: 24, kind: "vanish", visibleMs: 2800, hiddenMs: 900, phaseMs: 1500 },
-    { x: 850, y: 420, w: 300, h: 24 }
+    movingBar(700, 600, 800, "standard", 500),
+    vanishBar(1280, 700, barWidths.medium, "standard", 1500),
+    { x: 850, y: 420, w: barWidths.medium, h: 24 }
   ];
   return platforms.map((platform) => fitPlatformToCourse(platform, metrics)).sort((a, b) => b.y - a.y);
 }
@@ -628,23 +663,62 @@ export function checkStageLayouts() {
   const goalClearanceBottom = stage.goalY + 520;
   for (const [stageId, definition] of Object.entries(stageDefinitions) as Array<[StageId, StageDefinition]>) {
     const platforms = stagePlatforms(definition.mode, stageId);
+    const movementLayouts = movingPlatformLayouts(platforms);
     const blockers = platforms.filter((platform) => platform.y > stage.goalY && platform.y < goalClearanceBottom && !allowedGoalApproachY.has(platform.y));
     if (blockers.length > 0) {
       issues.push(`${stageId}: ${blockers.length} platform(s) inside goal clearance`);
     }
     const metrics = stageMetrics(stageId);
-    const clippedPlatforms = platforms.filter((platform) => playableWidth(platform, metrics) < effectiveWidth(platform) - 1);
-    if (clippedPlatforms.length > 0) {
-      issues.push(`${stageId}: ${clippedPlatforms.length} platform(s) too narrow inside course bounds`);
+    const clippedLayout = movementLayouts.find(({ platforms: layout }) => layout.some((platform) => playableWidth(platform, metrics) < effectiveWidth(platform) - 1));
+    if (clippedLayout) {
+      issues.push(`${stageId}: platform outside course bounds at moving position ${clippedLayout.label}`);
     }
     const denseWindow = densestWindow(platforms);
     if (denseWindow.count > maxPlatformsPerWindow(definition.climbHeight, definition.mode)) {
       issues.push(`${stageId}: too many platforms in one view (${denseWindow.count} near y=${Math.round(denseWindow.y)})`);
     }
-    const reachabilityIssue = checkReachability(stageId, definition.mode, platforms);
-    if (reachabilityIssue) issues.push(reachabilityIssue);
+    const unreachableLayout = movementLayouts
+      .map(({ label, platforms: layout }) => ({ label, issue: checkReachability(stageId, definition.mode, layout) }))
+      .find(({ issue }) => Boolean(issue));
+    if (unreachableLayout) issues.push(`${unreachableLayout.issue} at moving position ${unreachableLayout.label}`);
   }
   return issues;
+}
+
+function movingPlatformLayouts(platforms: Platform[]) {
+  const movingIndexes = platforms
+    .map((platform, index) => platform.kind === "moving" ? index : -1)
+    .filter((index) => index >= 0);
+  if (movingIndexes.length === 0) return [{ label: "static", platforms }];
+
+  const states = ["left", "center", "right"] as const;
+  const combinations: Array<Array<(typeof states)[number]>> = [];
+  if (movingIndexes.length <= 4) {
+    combinations.push([]);
+    for (let index = 0; index < movingIndexes.length; index += 1) {
+      const current = combinations.splice(0);
+      for (const combination of current) {
+        for (const state of states) combinations.push([...combination, state]);
+      }
+    }
+  } else {
+    for (const state of states) combinations.push(Array(movingIndexes.length).fill(state));
+  }
+
+  return combinations.map((combination) => {
+    const next = platforms.map((platform) => ({ ...platform }));
+    movingIndexes.forEach((platformIndex, movingIndex) => {
+      const platform = next[platformIndex];
+      const minX = platform.minX ?? platform.x;
+      const maxX = platform.maxX ?? platform.x;
+      const state = combination[movingIndex];
+      platform.x = state === "left" ? minX : state === "right" ? maxX : (minX + maxX) / 2;
+    });
+    return {
+      label: combination.map((state) => state[0].toUpperCase()).join("/"),
+      platforms: next
+    };
+  });
 }
 
 function checkReachability(stageId: StageId, mode: GameMode, platforms: Platform[]) {
