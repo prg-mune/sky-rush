@@ -76,6 +76,14 @@ npm.cmd run test:cpu20
 $env:SKY_RUSH_URL="http://127.0.0.1:3000"
 $env:SKY_RUSH_LOAD_TEST_MS="180000"
 $env:SKY_RUSH_STAGE_ID="battle_08_lightning_ridge"
+$env:SKY_RUSH_LOAD_PLAYERS="20"
+npm.cmd run test:cpu20
+```
+
+CPUの移動を1秒ごとに確認する場合:
+
+```powershell
+$env:SKY_RUSH_TRACE_CPU="1"
 npm.cmd run test:cpu20
 ```
 

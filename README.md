@@ -169,6 +169,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\delete-ecs.ps1 -DeleteEcr
 
 詳しい手順は [docs/OPERATIONS.md](docs/OPERATIONS.md) を参照してください。
 
+ゲームルールと実装設計:
+
+- [ゲーム仕様書](docs/GAME_SPEC.md)
+- [システム設計書](docs/SYSTEM_DESIGN.md)
+
 主に含まれる内容:
 
 - リリース前チェックリスト
@@ -178,9 +183,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\delete-ecs.ps1 -DeleteEcr
 - トラブルシュート
 - v1.0 時点の制限事項
 
-## v1.0 に向けた残タスク
+## 現在の設計課題
 
-- 20人CPU負荷テスト
-- README/運用手順の継続更新
-- `package.json` の version を `1.0.0` へ更新
-- GitHub tag / release の作成
+大会運用、複数ECSタスクへの拡張、ログ永続化などの課題は、[システム設計書](docs/SYSTEM_DESIGN.md#19-未実装今後の設計課題)にまとめています。
