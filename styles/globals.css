@@ -436,6 +436,111 @@ input[type="range"] {
   font-weight: 800;
 }
 
+.roomBadges .lockedBadge {
+  border-color: rgba(255, 212, 122, 0.45);
+  color: #ffd47a;
+}
+
+.passcodeSetting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 0;
+}
+
+.passcodeSetting > div {
+  display: grid;
+  gap: 3px;
+}
+
+.passcodeSetting small {
+  color: #9eb4c4;
+  font-size: 12px;
+}
+
+.switchControl {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switchControl input {
+  position: relative;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 1px solid #4b6577;
+  border-radius: 999px;
+  background: #0c1a25;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.36);
+  cursor: pointer;
+}
+
+.switchControl input::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 50%;
+  background: #9eb4c4;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.switchControl input:checked {
+  border-color: #f2b84b;
+  background: rgba(242, 184, 75, 0.24);
+}
+
+.switchControl input:checked::before {
+  transform: translateX(18px);
+  background: #ffd47a;
+}
+
+.switchControl span {
+  min-width: 28px;
+  color: #d8ecf7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.roomJoinActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.roomJoinActions input {
+  width: min(150px, 30vw);
+  min-width: 100px;
+  margin: 0;
+  padding: 9px 10px;
+}
+
+.roomJoinActions button {
+  flex: 0 0 auto;
+}
+
+.roomJoinActions .compactButton {
+  min-height: 36px;
+  padding: 6px 8px;
+  color: #9eb4c4;
+  font-size: 11px;
+}
+
 .matchStats {
   display: flex;
   flex-wrap: wrap;
@@ -475,7 +580,7 @@ input[type="range"] {
 .playerCard {
   --team-color: #ff6b6b;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   border: 1px solid color-mix(in srgb, var(--team-color) 70%, #ffffff 8%);
@@ -485,6 +590,14 @@ input[type="range"] {
     linear-gradient(90deg, color-mix(in srgb, var(--team-color) 32%, transparent), transparent 58%),
     #10202d;
   box-shadow: inset 3px 0 0 var(--team-color);
+}
+
+.removePlayerButton {
+  min-height: 30px;
+  padding: 5px 8px;
+  border-color: rgba(255, 107, 107, 0.55);
+  color: #ffb3b3;
+  font-size: 12px;
 }
 
 .players .me {
@@ -574,6 +687,53 @@ input[type="range"] {
 
 .playerMeta small {
   color: #b7cfe0;
+  font-size: 12px;
+}
+
+.rolePicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 0;
+}
+
+.rolePicker > span {
+  color: #d8ecf7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rolePicker > div {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(159, 216, 255, 0.42);
+  border-radius: 6px;
+}
+
+.rolePicker button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 12px;
+  background: #10202d;
+  color: #b7cfe0;
+}
+
+.rolePicker button + button {
+  border-left: 1px solid rgba(159, 216, 255, 0.32);
+}
+
+.rolePicker button.active {
+  background: #f2b84b;
+  color: #10202d;
+}
+
+.rolePicker small {
+  color: #9eb4c4;
   font-size: 12px;
 }
 
@@ -965,6 +1125,152 @@ input[type="range"] {
   padding: 5px 9px;
 }
 
+.broadcastMode {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 1px rgba(255, 107, 107, 0.28);
+}
+
+.broadcastBoard {
+  position: absolute;
+  z-index: 4;
+  top: 62px;
+  right: 14px;
+  width: min(270px, calc(100% - 28px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 107, 107, 0.62);
+  border-radius: 8px;
+  background: rgba(8, 19, 30, 0.9);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(7px);
+}
+
+.broadcastBoardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6b6b;
+  box-shadow: 0 0 10px #ff6b6b;
+  animation: livePulse 1s ease-in-out infinite alternate;
+}
+
+.broadcastBoard ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.broadcastBoard li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-left: 3px solid transparent;
+  padding: 5px 7px;
+  color: #d7e8f2;
+  font-size: 12px;
+}
+
+.broadcastBoard li.focused {
+  border-left-color: #ffd47a;
+  background: rgba(255, 212, 122, 0.12);
+}
+
+.broadcastBoard li b {
+  color: #ffd47a;
+  font-size: 14px;
+}
+
+.broadcastBoard li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.broadcastBoard li strong {
+  color: #ffffff;
+}
+
+.hostMatchControls {
+  position: absolute;
+  z-index: 5;
+  left: 14px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px;
+  border: 1px solid rgba(159, 216, 255, 0.32);
+  border-radius: 8px;
+  background: rgba(8, 19, 30, 0.88);
+}
+
+.hostMatchControls > strong {
+  padding: 0 4px;
+  color: #62d2ff;
+  font-size: 11px;
+}
+
+.hostMatchControls button {
+  min-height: 32px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.hostMatchControls button.active {
+  border-color: #ff6b6b;
+  background: #4a2027;
+}
+
+.hostMatchControls button.danger {
+  border-color: rgba(255, 107, 107, 0.58);
+  color: #ffb3b3;
+}
+
+.broadcastMode .hostMatchControls {
+  bottom: 76px;
+}
+
+.playerMatchControls {
+  position: absolute;
+  z-index: 5;
+  right: 14px;
+  bottom: 16px;
+  padding: 7px;
+  border: 1px solid rgba(255, 107, 107, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 19, 30, 0.88);
+}
+
+.playerMatchControls .retireButton {
+  min-height: 32px;
+  border-color: rgba(255, 107, 107, 0.62);
+  padding: 6px 10px;
+  color: #ffb3b3;
+  font-size: 12px;
+}
+
+@keyframes livePulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .winner {
   margin-bottom: 14px;
   color: #ffd47a;
@@ -1029,6 +1335,20 @@ tbody tr:nth-child(1) td {
   .waitingHeader {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .roomItem {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .roomJoinActions {
+    width: 100%;
+  }
+
+  .roomJoinActions input {
+    width: 100%;
+    min-width: 0;
   }
 
   .topbar {
@@ -1127,5 +1447,58 @@ tbody tr:nth-child(1) td {
 
   .countdown {
     font-size: 72px;
+  }
+
+  .broadcastBoard {
+    top: 58px;
+    right: 10px;
+    width: min(210px, calc(100% - 20px));
+  }
+
+  .broadcastMode .hud.center {
+    right: 10px;
+    left: auto;
+    transform: none;
+  }
+
+  .broadcastMode .broadcastStage {
+    display: none;
+  }
+
+  .broadcastBoard li:nth-child(n + 6) {
+    display: none;
+  }
+
+  .hostMatchControls {
+    left: 10px;
+    bottom: 70px;
+    max-width: calc(100% - 20px);
+  }
+
+  .playerMatchControls {
+    right: 10px;
+    bottom: 70px;
+  }
+
+  .spectatorPanel {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .spectatorPanel span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hostMatchControls > strong {
+    display: none;
   }
 }

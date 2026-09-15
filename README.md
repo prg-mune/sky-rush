@@ -173,6 +173,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\delete-ecs.ps1 -DeleteEcr
 
 - [ゲーム仕様書](docs/GAME_SPEC.md)
 - [システム設計書](docs/SYSTEM_DESIGN.md)
+- [今後のロードマップ](docs/ROADMAP.md)
 
 主に含まれる内容:
 

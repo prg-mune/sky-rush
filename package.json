@@ -9,6 +9,7 @@
     "check:stages": "tsx scripts/check-stages.ts",
     "preview:stage": "tsx scripts/render-stage-preview.ts",
     "test:cpu20": "tsx scripts/load-test-cpu20.ts",
+    "test:host-controls": "tsx scripts/test-host-controls.ts",
     "typecheck": "tsc --noEmit",
     "lint": "next lint"
   },

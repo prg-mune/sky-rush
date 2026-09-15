@@ -25,6 +25,8 @@ export type RoomSummary = {
   difficulty: DifficultyMode;
   stageId: StageId;
   playerCount: number;
+  spectatorCount: number;
+  requiresPasscode: boolean;
   maxPlayers: number;
   started: boolean;
 };
@@ -42,9 +44,11 @@ export type PlayerSnapshot = {
   altitude: number;
   connected: boolean;
   isCpu?: boolean;
+  spectator?: boolean;
   team?: number;
   color?: string;
   finishedAt?: number;
+  retiredAt?: number;
 };
 
 export type RoomState = {
@@ -62,7 +66,7 @@ export type RoomState = {
   timeoutAt?: number;
   timeLimitMs?: number;
   finishedAt?: number;
-  finishReason?: "allHumansFinished" | "timeout";
+  finishReason?: "allHumansFinished" | "allRacersFinished" | "timeout" | "hostEnded";
   serverTime: number;
   players: PlayerSnapshot[];
 };
@@ -87,6 +91,7 @@ export type ResultRow = {
   playerName: string;
   altitude: number;
   goalTimeMs?: number;
+  retired?: boolean;
   team?: number;
 };
 
@@ -96,6 +101,7 @@ export type ServerToClientEvents = {
   gameStarted: (room: RoomState) => void;
   gameState: (room: RoomState) => void;
   gameEnded: (payload: { room: RoomState; results: ResultRow[] }) => void;
+  removedFromRoom: (reason: string) => void;
   effectBurst: (payload: EffectBurst) => void;
   errorMessage: (message: string) => void;
 };
@@ -103,11 +109,16 @@ export type ServerToClientEvents = {
 export type ClientToServerEvents = {
   login: (payload: { playerName: string; password: string; sessionId?: string }, cb: (ok: boolean, message?: string, sessionId?: string) => void) => void;
   listRooms: () => void;
-  createRoom: (payload: { name: string; mode: GameMode; difficulty: DifficultyMode; maxPlayers: number; stageId: StageId }) => void;
-  joinRoom: (roomId: string) => void;
+  createRoom: (payload: { name: string; mode: GameMode; difficulty: DifficultyMode; maxPlayers: number; stageId: StageId; passcode?: string }) => void;
+  joinRoom: (payload: { roomId: string; passcode?: string }, cb: (ok: boolean, message?: string) => void) => void;
   leaveRoom: () => void;
   startGame: () => void;
+  removePlayer: (playerId: string) => void;
+  endGame: () => void;
+  prepareRematch: () => void;
   setTeam: (team: number) => void;
   setColor: (color: string) => void;
+  setSpectator: (spectator: boolean, cb: (ok: boolean, message?: string) => void) => void;
+  retire: () => void;
   input: (input: ClientInput) => void;
 };

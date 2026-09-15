@@ -46,11 +46,17 @@ export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [roomName, setRoomName] = useState("");
+  const [roomPasscodeEnabled, setRoomPasscodeEnabled] = useState(false);
+  const [roomPasscode, setRoomPasscode] = useState("");
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [joinPasscode, setJoinPasscode] = useState("");
   const [mode, setMode] = useState<GameMode>("battle");
   const [difficulty, setDifficulty] = useState<DifficultyMode>("normal");
   const [stageId, setStageId] = useState<StageId>("battle_01_garden");
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [spectatingPlayerId, setSpectatingPlayerId] = useState<string | undefined>();
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [roleChanging, setRoleChanging] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
@@ -78,10 +84,14 @@ export default function Home() {
     nextSocket.on("rooms", setRooms);
     nextSocket.on("roomState", (nextRoom) => {
       setRoom(nextRoom);
+      const owner = nextRoom.players.find((player) => player.id === nextSocket.id);
+      if (nextRoom.started && nextRoom.ownerId === nextSocket.id && owner?.spectator) setBroadcastMode(true);
       setScreen(nextRoom.started ? "game" : "waiting");
     });
     nextSocket.on("gameStarted", (nextRoom) => {
       setRoom(nextRoom);
+      const owner = nextRoom.players.find((player) => player.id === nextSocket.id);
+      if (nextRoom.ownerId === nextSocket.id && owner?.spectator) setBroadcastMode(true);
       setScreen("game");
     });
     nextSocket.on("gameState", setRoom);
@@ -89,6 +99,14 @@ export default function Home() {
       setRoom(endedRoom);
       setResults(endedResults);
       setScreen("result");
+    });
+    nextSocket.on("removedFromRoom", (reason) => {
+      setRoom(null);
+      setResults([]);
+      setBroadcastMode(false);
+      setScreen("lobby");
+      setNotice({ kind: "warning", text: reason });
+      nextSocket.emit("listRooms");
     });
     nextSocket.on("errorMessage", (text) => setNotice({ kind: "error", text }));
     return () => {
@@ -119,25 +137,45 @@ export default function Home() {
 
   const me = useMemo(() => room?.players.find((player) => player.id === socket?.id), [room, socket?.id]);
   const leader = useMemo<PlayerSnapshot | undefined>(
-    () => room?.players.reduce((best, player) => (player.altitude > best.altitude ? player : best), room.players[0]),
+    () => room?.players
+      .filter((player) => !player.spectator && !player.retiredAt)
+      .reduce<PlayerSnapshot | undefined>((best, player) => (!best || player.altitude > best.altitude ? player : best), undefined),
     [room]
   );
   const watchablePlayers = useMemo(
-    () => room?.players.filter((player) => player.connected && !player.finishedAt).sort((a, b) => b.altitude - a.altitude) ?? [],
+    () => room?.players.filter((player) => player.connected && !player.finishedAt && !player.retiredAt && !player.spectator).sort((a, b) => b.altitude - a.altitude) ?? [],
     [room]
   );
+  const liveLeaderboard = useMemo(
+    () => [...(room?.players ?? [])].filter((player) => !player.spectator).sort((a, b) => {
+      if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
+      if (a.finishedAt) return -1;
+      if (b.finishedAt) return 1;
+      if (a.retiredAt && b.retiredAt) return b.retiredAt - a.retiredAt;
+      if (a.retiredAt) return 1;
+      if (b.retiredAt) return -1;
+      return b.altitude - a.altitude;
+    }),
+    [room]
+  );
+  const broadcastCandidates = useMemo(() => {
+    const active = watchablePlayers.filter((player) => player.id !== socket?.id);
+    return active.length > 0 ? active : watchablePlayers;
+  }, [socket?.id, watchablePlayers]);
   const spectatingPlayer = useMemo(
     () => room?.players.find((player) => player.id === spectatingPlayerId),
     [room, spectatingPlayerId]
   );
   const isOwner = Boolean(room && socket?.id === room.ownerId);
+  const racerCount = room?.players.filter((player) => !player.spectator).length ?? 0;
+  const spectatorCount = room?.players.filter((player) => player.spectator).length ?? 0;
   const selectableStages = useMemo(() => stageOptions.filter((stage) => stage.mode === mode), [mode]);
   const synchronizedNow = room?.serverTime ?? Date.now();
   const countdownMs = Math.max(0, (room?.startedAt || 0) - synchronizedNow);
   const countdownLabel = countdownMs > 0 ? Math.ceil(countdownMs / 1000).toString() : "";
   const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - synchronizedNow);
   const isLastSpurt = Boolean(me && room && me.altitude > stageClimbHeight(room.stageId) * 0.84 && !room.finishedAt);
-  const isSpectator = Boolean(me?.finishedAt && room && !room.finishedAt);
+  const isSpectator = Boolean((me?.finishedAt || me?.retiredAt || me?.spectator) && room && !room.finishedAt);
 
   useEffect(() => {
     if (!selectableStages.some((stage) => stage.id === stageId)) {
@@ -146,14 +184,19 @@ export default function Home() {
   }, [selectableStages, stageId]);
 
   useEffect(() => {
-    if (!isSpectator) {
+    if (!isSpectator && !broadcastMode) {
       setSpectatingPlayerId(undefined);
       return;
     }
-    if (!spectatingPlayerId || !watchablePlayers.some((player) => player.id === spectatingPlayerId)) {
-      setSpectatingPlayerId(watchablePlayers[0]?.id);
+    const candidates = broadcastMode ? broadcastCandidates : watchablePlayers;
+    if (!spectatingPlayerId || !candidates.some((player) => player.id === spectatingPlayerId)) {
+      setSpectatingPlayerId(candidates[0]?.id);
     }
-  }, [isSpectator, spectatingPlayerId, watchablePlayers]);
+  }, [broadcastCandidates, broadcastMode, isSpectator, spectatingPlayerId, watchablePlayers]);
+
+  useEffect(() => {
+    if (screen !== "game") setBroadcastMode(false);
+  }, [screen]);
 
   function login() {
     setNotice(null);
@@ -175,17 +218,40 @@ export default function Home() {
       setNotice({ kind: "warning", text: "再接続後に部屋を作成できます" });
       return;
     }
+    if (roomPasscodeEnabled && !/^\d{4}$/.test(roomPasscode)) {
+      setNotice({ kind: "warning", text: "部屋のパスコードは4桁の数字で入力してください" });
+      return;
+    }
     setNotice({ kind: "info", text: "部屋を作成しています" });
-    socket?.emit("createRoom", { name: roomName, mode, difficulty, maxPlayers, stageId });
+    socket?.emit("createRoom", {
+      name: roomName,
+      mode,
+      difficulty,
+      maxPlayers,
+      stageId,
+      passcode: roomPasscodeEnabled ? roomPasscode.trim() : undefined
+    });
   }
 
-  function joinSelectedRoom(roomId: string) {
+  function joinSelectedRoom(entry: RoomSummary, passcode?: string) {
     if (!isConnected) {
       setNotice({ kind: "warning", text: "再接続後に参加できます" });
       return;
     }
+    if (entry.requiresPasscode && passcode === undefined) {
+      setJoiningRoomId(entry.id);
+      setJoinPasscode("");
+      return;
+    }
     setNotice({ kind: "info", text: "部屋へ参加しています" });
-    socket?.emit("joinRoom", roomId);
+    socket?.emit("joinRoom", { roomId: entry.id, passcode: passcode?.trim() }, (ok, message) => {
+      if (ok) {
+        setJoiningRoomId(null);
+        setJoinPasscode("");
+        return;
+      }
+      setNotice({ kind: "warning", text: message || "部屋へ参加できませんでした" });
+    });
   }
 
   function leaveToLobby() {
@@ -198,10 +264,39 @@ export default function Home() {
   }
 
   function shiftSpectatingPlayer(direction: number) {
-    if (watchablePlayers.length === 0) return;
-    const currentIndex = Math.max(0, watchablePlayers.findIndex((player) => player.id === spectatingPlayerId));
-    const nextIndex = (currentIndex + direction + watchablePlayers.length) % watchablePlayers.length;
-    setSpectatingPlayerId(watchablePlayers[nextIndex].id);
+    const candidates = broadcastMode ? broadcastCandidates : watchablePlayers;
+    if (candidates.length === 0) return;
+    const currentIndex = Math.max(0, candidates.findIndex((player) => player.id === spectatingPlayerId));
+    const nextIndex = (currentIndex + direction + candidates.length) % candidates.length;
+    setSpectatingPlayerId(candidates[nextIndex].id);
+  }
+
+  function removePlayerFromRoom(player: PlayerSnapshot) {
+    if (!window.confirm(`${player.name}を部屋から退出させますか？`)) return;
+    socket?.emit("removePlayer", player.id);
+  }
+
+  function endCurrentGame() {
+    if (!window.confirm("現在の試合を終了してリザルトを表示しますか？")) return;
+    socket?.emit("endGame");
+  }
+
+  function retireCurrentPlayer() {
+    if (!window.confirm("リタイアして観戦モードへ移りますか？")) return;
+    socket?.emit("retire");
+  }
+
+  function prepareRematch() {
+    socket?.emit("prepareRematch");
+  }
+
+  function changeRole(spectator: boolean) {
+    if (!socket || roleChanging || me?.spectator === spectator) return;
+    setRoleChanging(true);
+    socket.emit("setSpectator", spectator, (ok, message) => {
+      setRoleChanging(false);
+      if (!ok) setNotice({ kind: "warning", text: message || "参加方法を変更できませんでした" });
+    });
   }
 
   return (
@@ -379,7 +474,46 @@ export default function Home() {
               最大人数 {maxPlayers}
               <input type="range" min={2} max={20} value={maxPlayers} onChange={(event) => setMaxPlayers(Number(event.target.value))} />
             </label>
-            <button className="primary" disabled={!isConnected || !enabledStageIds.has(stageId)} onClick={createRoom}>作成</button>
+            <div className="passcodeSetting">
+              <div>
+                <strong>入室パスコード</strong>
+                <small>招待したメンバーだけ参加できます</small>
+              </div>
+              <label className="switchControl">
+                <input
+                  type="checkbox"
+                  checked={roomPasscodeEnabled}
+                  onChange={(event) => {
+                    setRoomPasscodeEnabled(event.target.checked);
+                    if (!event.target.checked) setRoomPasscode("");
+                  }}
+                />
+                <span>{roomPasscodeEnabled ? "あり" : "なし"}</span>
+              </label>
+            </div>
+            {roomPasscodeEnabled && (
+              <label>
+                部屋のパスコード
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  name="sky-rush-room-passcode"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  value={roomPasscode}
+                  onChange={(event) => setRoomPasscode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  placeholder="4桁の数字"
+                />
+              </label>
+            )}
+            <button
+              className="primary"
+              disabled={!isConnected || !enabledStageIds.has(stageId) || (roomPasscodeEnabled && !/^\d{4}$/.test(roomPasscode))}
+              onClick={createRoom}
+            >
+              作成
+            </button>
           </div>
           <div className="panel">
             <div className="panelHeader">
@@ -397,14 +531,41 @@ export default function Home() {
                     <strong>{entry.name}</strong>
                     <span>{entry.mode === "battle" ? "バトルロワイヤル登山" : "チーム登山"} / {stageLabel(entry.stageId)}</span>
                     <span className="roomBadges">
-                      <small>{entry.playerCount} / {entry.maxPlayers}</small>
+                      <small>出走 {entry.playerCount} / {entry.maxPlayers}</small>
+                      {entry.spectatorCount > 0 && <small>観戦 {entry.spectatorCount}</small>}
                       <small>{difficultyLabel(entry.difficulty)}</small>
+                      {entry.requiresPasscode && <small className="lockedBadge">PASSCODE</small>}
                       <small>{entry.started ? "STARTED" : "OPEN"}</small>
                     </span>
                   </div>
-                  <button disabled={!isConnected || entry.started} onClick={() => joinSelectedRoom(entry.id)}>
-                    {entry.started ? "開始済み" : "参加"}
-                  </button>
+                  <div className="roomJoinActions">
+                    {joiningRoomId === entry.id && entry.requiresPasscode ? (
+                      <>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          name={`sky-rush-join-${entry.id}`}
+                          pattern="[0-9]{4}"
+                          maxLength={4}
+                          value={joinPasscode}
+                          onChange={(event) => setJoinPasscode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && /^\d{4}$/.test(joinPasscode)) joinSelectedRoom(entry, joinPasscode);
+                          }}
+                          placeholder="4桁"
+                          aria-label={`${entry.name}のパスコード`}
+                          autoFocus
+                        />
+                        <button disabled={!isConnected || !/^\d{4}$/.test(joinPasscode)} onClick={() => joinSelectedRoom(entry, joinPasscode)}>入室</button>
+                        <button className="compactButton" onClick={() => setJoiningRoomId(null)} aria-label="パスコード入力を閉じる">閉じる</button>
+                      </>
+                    ) : (
+                      <button disabled={!isConnected || entry.started} onClick={() => joinSelectedRoom(entry)}>
+                        {entry.started ? "開始済み" : entry.requiresPasscode ? "コード入力" : "参加"}
+                      </button>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
@@ -421,7 +582,8 @@ export default function Home() {
               <p className="muted">{stageLabel(room.stageId)}</p>
             </div>
             <div className="matchStats">
-              <span><strong>{room.players.length}</strong><small>/ {room.maxPlayers}</small></span>
+              <span><strong>{racerCount} / {room.maxPlayers}</strong><small>Racers</small></span>
+              <span><strong>{spectatorCount}</strong><small>Spectators</small></span>
               <span><strong>{room.players.filter((player) => player.connected).length}</strong><small>Online</small></span>
               <span><strong>{stageClimbHeight(room.stageId)}m</strong><small>Course</small></span>
               <span><strong>{difficultyLabel(room.difficulty)}</strong><small>Difficulty</small></span>
@@ -440,12 +602,25 @@ export default function Home() {
                 </span>
                 <span className="playerMeta">
                   <strong>{player.name}</strong>
-                  <small>{player.isCpu ? "CPU Racer" : player.connected ? "Player" : "Offline"}{player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
+                  <small>{player.isCpu ? "CPU Racer" : !player.connected ? "Offline" : player.spectator ? "Spectator" : "Racer"}{!player.spectator && player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
                 </span>
+                {isOwner && player.id !== socket?.id && !player.isCpu && (
+                  <button className="removePlayerButton" type="button" onClick={() => removePlayerFromRoom(player)} aria-label={`${player.name}を退出させる`}>退出</button>
+                )}
               </span>
             ))}
           </div>
-          {room.mode === "team" && me && !me.isCpu && !room.started && (
+          {me && !me.isCpu && !room.started && (
+            <div className="rolePicker" aria-label="参加方法">
+              <span>参加方法</span>
+              <div>
+                <button className={!me.spectator ? "active" : ""} disabled={roleChanging} onClick={() => changeRole(false)}>出走する</button>
+                <button className={me.spectator ? "active" : ""} disabled={roleChanging} onClick={() => changeRole(true)}>観戦する</button>
+              </div>
+              <small>{me.spectator ? "順位と接触判定には入りません" : `出走枠 ${racerCount} / ${room.maxPlayers}`}</small>
+            </div>
+          )}
+          {room.mode === "team" && me && !me.isCpu && !me.spectator && !room.started && (
             <div className="teamPicker">
               {[1, 2, 3, 4].map((team) => (
                 <button
@@ -459,7 +634,7 @@ export default function Home() {
               ))}
             </div>
           )}
-          {room.mode === "battle" && me && !me.isCpu && !room.started && (
+          {room.mode === "battle" && me && !me.isCpu && !me.spectator && !room.started && (
             <div className="colorPicker" aria-label="プレイヤーカラー">
               {playerColors.map((color) => (
                 <button
@@ -473,54 +648,95 @@ export default function Home() {
             </div>
           )}
           <div className="actionBar">
-            {isOwner ? <button className="primary" disabled={!isConnected} onClick={() => socket?.emit("startGame")}>開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
+            {isOwner ? <button className="primary" disabled={!isConnected || roleChanging} onClick={() => socket?.emit("startGame")}>試合開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
           </div>
         </section>
       )}
 
       {screen === "game" && room && socket && (
-        <section className={`gameWrap${isLastSpurt ? " lastSpurt" : ""}`}>
-          <div className="hud left">順位 {socket.id ? rankOf(room, socket.id) : "-"} / {room.players.length} 位</div>
+        <section className={`gameWrap${isLastSpurt ? " lastSpurt" : ""}${broadcastMode ? " broadcastMode" : ""}`}>
+          <div className="hud left">
+            {broadcastMode ? (
+              <>
+                LIVE<span className="broadcastStage"> / {stageLabel(room.stageId)}</span>
+              </>
+            ) : isSpectator ? "観戦モード" : `順位 ${socket.id ? rankOf(room, socket.id) : "-"} / ${liveLeaderboard.length} 位`}
+          </div>
           {room.timeoutAt && !countdownLabel && (
             <div className="hud center">残り {formatTime(matchTimeLeftMs)}</div>
           )}
-          <div className="altitudeMap" aria-label="Altitude map">
-            <div className="altitudeTrack">
-              <span
-                className="altitudeFill"
-                style={{ height: `${altitudeProgress(me?.altitude || 0, room.stageId)}%` }}
-              />
-              {leader && (
+          {!broadcastMode && (
+            <div className="altitudeMap" aria-label="Altitude map">
+              <div className="altitudeTrack">
                 <span
-                  className="altitudeMarker leader"
-                  style={{ bottom: `${altitudeProgress(leader.altitude, room.stageId)}%` }}
+                  className="altitudeFill"
+                  style={{ height: `${altitudeProgress(me?.altitude || 0, room.stageId)}%` }}
                 />
-              )}
-              {me && (
-                <span
-                  className="altitudeMarker me"
-                  style={{ bottom: `${altitudeProgress(me.altitude, room.stageId)}%` }}
-                />
-              )}
-            </div>
-            <div className="altitudeMapLabel">
-              <strong>{Math.round(me?.altitude || 0)}m</strong>
-              <span>/{stageClimbHeight(room.stageId)}m</span>
-            </div>
-          </div>
-          {countdownLabel && <div className="countdown">{countdownLabel}</div>}
-          {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">LAST SPURT</div>}
-          {isSpectator && (
-            <div className="spectatorPanel">
-              <strong>観戦中</strong>
-              <span>{spectatingPlayer ? `${spectatingPlayer.name} / ${Math.round(spectatingPlayer.altitude)}m` : "全員ゴール待ち"}</span>
-              <div>
-                <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(-1)}>前へ</button>
-                <button disabled={watchablePlayers.length <= 1} onClick={() => shiftSpectatingPlayer(1)}>次へ</button>
+                {leader && (
+                  <span
+                    className="altitudeMarker leader"
+                    style={{ bottom: `${altitudeProgress(leader.altitude, room.stageId)}%` }}
+                  />
+                )}
+                {me && (
+                  <span
+                    className="altitudeMarker me"
+                    style={{ bottom: `${altitudeProgress(me.altitude, room.stageId)}%` }}
+                  />
+                )}
+              </div>
+              <div className="altitudeMapLabel">
+                <strong>{Math.round(me?.altitude || 0)}m</strong>
+                <span>/{stageClimbHeight(room.stageId)}m</span>
               </div>
             </div>
           )}
-          <SkyRushGame socket={socket} room={room} spectatingPlayerId={spectatingPlayerId} />
+          {broadcastMode && !countdownLabel && (
+            <aside className="broadcastBoard" aria-label="ライブ順位">
+              <div className="broadcastBoardHeader">
+                <span className="liveDot" />
+                <strong>LIVE RANKING</strong>
+              </div>
+              <ol>
+                {liveLeaderboard.slice(0, 8).map((player, index) => (
+                  <li key={player.id} className={player.id === spectatingPlayerId ? "focused" : ""}>
+                    <b>{index + 1}</b>
+                    <span>{player.name}</span>
+                    <strong>{player.finishedAt ? "GOAL" : player.retiredAt ? "RETIRED" : `${Math.round(player.altitude)}m`}</strong>
+                  </li>
+                ))}
+              </ol>
+            </aside>
+          )}
+          {countdownLabel && <div className="countdown">{countdownLabel}</div>}
+          {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">LAST SPURT</div>}
+          {(isSpectator || broadcastMode) && (
+            <div className="spectatorPanel">
+              <strong>{broadcastMode ? "大会中継" : "観戦中"}</strong>
+              <span>{spectatingPlayer ? `${spectatingPlayer.name} / ${Math.round(spectatingPlayer.altitude)}m` : "全員ゴール待ち"}</span>
+              <div>
+                <button disabled={(broadcastMode ? broadcastCandidates : watchablePlayers).length <= 1} onClick={() => shiftSpectatingPlayer(-1)}>前へ</button>
+                <button disabled={(broadcastMode ? broadcastCandidates : watchablePlayers).length <= 1} onClick={() => shiftSpectatingPlayer(1)}>次へ</button>
+              </div>
+            </div>
+          )}
+          {isOwner && (
+            <div className="hostMatchControls">
+              <strong>HOST</strong>
+              {me?.spectator && (
+                <button type="button" className={broadcastMode ? "active" : ""} onClick={() => setBroadcastMode((current) => !current)}>
+                  {broadcastMode ? "中継を終了" : "中継モード"}
+                </button>
+              )}
+              <button type="button" className="danger" onClick={endCurrentGame}>試合終了</button>
+            </div>
+          )}
+          {!countdownLabel && me && !me.isCpu && !me.spectator && !me.finishedAt && !me.retiredAt && (
+            <div className="playerMatchControls">
+              <button type="button" className="retireButton" onClick={retireCurrentPlayer}>リタイア</button>
+            </div>
+          )}
+          <SkyRushGame socket={socket} room={room} spectatingPlayerId={spectatingPlayerId} inputDisabled={broadcastMode || Boolean(me?.spectator || me?.retiredAt)} />
         </section>
       )}
 
@@ -534,7 +750,7 @@ export default function Home() {
           </div>
           <table>
             <thead>
-              <tr><th>順位</th><th>プレイヤー</th><th>高度</th><th>ゴール時間</th></tr>
+              <tr><th>順位</th><th>プレイヤー</th><th>高度</th><th>結果 / ゴール時間</th></tr>
             </thead>
             <tbody>
               {results.map((row) => (
@@ -542,12 +758,13 @@ export default function Home() {
                   <td>{row.rank}</td>
                   <td>{row.playerName}{row.team ? ` / T${row.team}` : ""}</td>
                   <td>{row.altitude}m</td>
-                  <td>{row.goalTimeMs ? `${(row.goalTimeMs / 1000).toFixed(2)}s` : "-"}</td>
+                  <td>{row.retired ? "RETIRED" : row.goalTimeMs ? `${(row.goalTimeMs / 1000).toFixed(2)}s` : "-"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="actionBar">
+            {isOwner && <button onClick={prepareRematch}>同じ設定で再戦</button>}
             <button className="primary" onClick={leaveToLobby}>ロビーへ戻る</button>
           </div>
         </section>
@@ -557,7 +774,7 @@ export default function Home() {
 }
 
 function rankOf(room: RoomState, socketId: string) {
-  const sorted = [...room.players].sort((a, b) => b.altitude - a.altitude);
+  const sorted = room.players.filter((player) => !player.spectator && !player.retiredAt).sort((a, b) => b.altitude - a.altitude);
   return sorted.findIndex((player) => player.id === socketId) + 1;
 }
 

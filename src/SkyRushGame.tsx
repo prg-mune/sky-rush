@@ -7,6 +7,7 @@ type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
   room: RoomState;
   spectatingPlayerId?: string;
+  inputDisabled?: boolean;
 };
 
 type PlatformView = Platform & {
@@ -22,13 +23,15 @@ type PlayerMotionFx = {
   pushDirection: -1 | 1;
 };
 
-export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props) {
+export default function SkyRushGame({ socket, room, spectatingPlayerId, inputDisabled = false }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef(room);
   const spectatingPlayerIdRef = useRef(spectatingPlayerId);
+  const inputDisabledRef = useRef(inputDisabled);
   const serverClockOffsetRef = useRef(0);
   roomRef.current = room;
   spectatingPlayerIdRef.current = spectatingPlayerId;
+  inputDisabledRef.current = inputDisabled;
   serverClockOffsetRef.current = room.serverTime - Date.now();
 
   useEffect(() => {
@@ -89,6 +92,13 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
           const frameNow = Date.now();
           const serverNow = frameNow + serverClockOffsetRef.current;
           const me = roomRef.current.players.find((player) => player.id === socket.id);
+          if (inputDisabledRef.current) {
+            keys.left = false;
+            keys.right = false;
+            keys.jump = false;
+            chargeStartedOnGround = false;
+            jumpHeldMs = 0;
+          }
           if (keys.jump && me) {
             if (me.grounded && !chargeStartedOnGround) {
               jumpStarted = performance.now();
@@ -169,6 +179,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
       }
 
       function onKeyDown(event: KeyboardEvent) {
+        if (inputDisabledRef.current) return;
         if (event.code === "KeyA" || event.code === "ArrowLeft") keys.left = true;
         if (event.code === "KeyD" || event.code === "ArrowRight") keys.right = true;
         if (event.code === "Space") {
@@ -187,6 +198,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId }: Props)
       }
 
       function onPointerDown(event: PointerEvent) {
+        if (inputDisabledRef.current) return;
         if (event.pointerType === "mouse" || touchInput.pointerId !== -1) return;
         touchInput.pointerId = event.pointerId;
         touchInput.startX = event.clientX;
@@ -318,8 +330,9 @@ function syncSprites(
   localChargeRatio: number,
   now: number
 ) {
-  const active = new Set(room.players.map((player) => player.id));
-  for (const player of room.players) {
+  const racers = room.players.filter((player) => !player.spectator && !player.retiredAt);
+  const active = new Set(racers.map((player) => player.id));
+  for (const player of racers) {
     let group = groups.get(player.id);
     let label = labels.get(player.id);
     if (!group) {
@@ -366,7 +379,7 @@ function markPushedPlayers(
   now: number
 ) {
   const nearby = room.players
-    .filter((player) => player.connected && !player.finishedAt)
+    .filter((player) => player.connected && !player.finishedAt && !player.retiredAt && !player.spectator)
     .map((player) => {
       const centerX = player.x + 17;
       const centerY = player.y + 23;
@@ -403,6 +416,7 @@ function updateChargeGauge(
     player &&
     player.connected &&
     !player.finishedAt &&
+    !player.retiredAt &&
     !player.jumping &&
     (!startedAt || serverNow >= startedAt) &&
     ratio > 0

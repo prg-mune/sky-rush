@@ -1,4 +1,5 @@
 import { createServer } from "http";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import next from "next";
 import { Server, type Socket as IOSocket } from "socket.io";
 import type {
@@ -71,8 +72,10 @@ const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
 const rooms = new Map<string, RoomRuntime>();
+const roomPasscodes = new Map<string, { salt: Buffer; digest: Buffer }>();
 
 const CPU_TARGET_PLAYERS = 20;
+const MAX_SPECTATORS_PER_ROOM = 10;
 const COUNTDOWN_MS = 5000;
 const DISCONNECTED_PLAYER_TTL_MS = 2 * 60 * 1000;
 const EMPTY_ROOM_TTL_MS = 30 * 1000;
@@ -109,7 +112,9 @@ function roomSummary(room: RoomRuntime): RoomSummary {
     mode: room.mode,
     difficulty: room.difficulty,
     stageId: room.stageId,
-    playerCount: room.players.size,
+    playerCount: racingPlayers(room).length,
+    spectatorCount: [...room.players.values()].filter((player) => player.spectator).length,
+    requiresPasscode: roomPasscodes.has(room.id),
     maxPlayers: room.maxPlayers,
     started: room.started
   };
@@ -117,10 +122,14 @@ function roomSummary(room: RoomRuntime): RoomSummary {
 
 function results(room: RoomRuntime): ResultRow[] {
   return [...room.players.values()]
+    .filter((player) => !player.spectator)
     .sort((a, b) => {
       if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
       if (a.finishedAt) return -1;
       if (b.finishedAt) return 1;
+      if (a.retiredAt && b.retiredAt) return b.retiredAt - a.retiredAt;
+      if (a.retiredAt) return 1;
+      if (b.retiredAt) return -1;
       return b.altitude - a.altitude;
     })
     .map((player, index) => ({
@@ -128,6 +137,7 @@ function results(room: RoomRuntime): ResultRow[] {
       playerName: player.name,
       altitude: Math.round(player.altitude),
       goalTimeMs: player.finishedAt && room.startedAt ? player.finishedAt - room.startedAt : undefined,
+      retired: Boolean(player.retiredAt),
       team: player.team
     }));
 }
@@ -176,8 +186,18 @@ function humanPlayers(room: RoomRuntime) {
   return [...room.players.values()].filter((player) => !player.isCpu);
 }
 
+function racingPlayers(room: RoomRuntime) {
+  return [...room.players.values()].filter((player) => !player.spectator);
+}
+
+function racingHumans(room: RoomRuntime) {
+  return humanPlayers(room).filter((player) => !player.spectator);
+}
+
 function roomWinner(room: RoomRuntime) {
-  return [...humanPlayers(room)].sort((a, b) => {
+  const humanRacers = racingHumans(room).filter((player) => !player.retiredAt);
+  const candidates = humanRacers.length === 0 ? racingPlayers(room).filter((player) => !player.retiredAt) : humanRacers;
+  return [...candidates].sort((a, b) => {
     if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
     if (a.finishedAt) return -1;
     if (b.finishedAt) return 1;
@@ -187,9 +207,11 @@ function roomWinner(room: RoomRuntime) {
 
 function checkRoomEnd(io: SkyRushServer, room: RoomRuntime) {
   if (room.finishedAt || !room.startedAt) return;
-  const humans = humanPlayers(room);
-  if (humans.length > 0 && humans.every((player) => Boolean(player.finishedAt))) {
-    finishRoom(io, room, "allHumansFinished");
+  const humanRacers = racingHumans(room);
+  const cpuOnlyRace = humanRacers.length === 0;
+  const requiredFinishers = cpuOnlyRace ? racingPlayers(room) : humanRacers;
+  if (requiredFinishers.length > 0 && requiredFinishers.every((player) => Boolean(player.finishedAt || player.retiredAt))) {
+    finishRoom(io, room, cpuOnlyRace ? "allRacersFinished" : "allHumansFinished");
     return;
   }
   if (room.timeoutAt && Date.now() >= room.timeoutAt) {
@@ -208,6 +230,53 @@ function finishRoom(io: SkyRushServer, room: RoomRuntime, reason: RoomState["fin
   broadcastRooms(io);
 }
 
+function prepareRoomRematch(room: RoomRuntime) {
+  const metrics = stageMetrics(room.stageId);
+  const now = Date.now();
+  for (const [playerId, player] of room.players.entries()) {
+    if (player.isCpu || !player.connected) {
+      room.players.delete(playerId);
+      continue;
+    }
+    const index = [...room.players.values()].filter((candidate) => !candidate.isCpu && candidate.connected).indexOf(player);
+    const jumpRequestId = player.input.jumpRequestId + 1;
+    player.x = spawnXFor(Math.max(0, index));
+    player.y = metrics.spawnY;
+    player.vx = 0;
+    player.vy = 0;
+    player.facing = "right";
+    player.jumping = false;
+    player.altitude = 0;
+    delete player.finishedAt;
+    delete player.retiredAt;
+    player.input = { left: false, right: false, jump: false, jumpHeldMs: 0, jumpRequestId, seq: player.input.seq + 1 };
+    player.lastJumpRequestId = jumpRequestId;
+    player.chargeStartedAt = undefined;
+    player.jumpPressWasActionable = false;
+    player.onGround = false;
+    player.standingOnPlayerId = null;
+    player.standingOnPlatformIndex = null;
+    player.wallTouch = null;
+    player.aiTargetX = undefined;
+    player.aiTakeoffX = undefined;
+    player.aiTargetPlatformIndex = undefined;
+    player.aiTargetLandingRatio = undefined;
+    player.aiPlannedJumpHeldMs = undefined;
+    player.aiSteerAt = undefined;
+    player.aiNextThinkAt = undefined;
+    player.aiNextJumpAt = undefined;
+    player.lastInputAt = now;
+  }
+  room.started = false;
+  delete room.startedAt;
+  delete room.timeoutAt;
+  delete room.timeLimitMs;
+  delete room.finishedAt;
+  delete room.finishReason;
+  delete room.winnerId;
+  delete room.winningTeam;
+}
+
 function stepPhysics(io: SkyRushServer, dt: number) {
   for (const room of rooms.values()) {
     if (!room.started || room.finishedAt) continue;
@@ -220,8 +289,8 @@ function stepPhysics(io: SkyRushServer, dt: number) {
     const collisionPlatforms = indexedCollisionPlatforms(room, now);
     const previousPlatforms = indexedCollisionPlatforms(room, now - dt * 1000);
     for (const player of room.players.values()) {
-      if (!player.connected) continue;
-      if (player.finishedAt) {
+      if (!player.connected || player.spectator) continue;
+      if (player.finishedAt || player.retiredAt) {
         player.vx = 0;
         player.vy = 0;
         player.jumping = false;
@@ -299,7 +368,7 @@ function stepPhysics(io: SkyRushServer, dt: number) {
 
       for (const other of room.players.values()) {
         if (other.id === player.id) continue;
-        if (!other.connected) continue;
+        if (!other.connected || other.spectator || other.retiredAt) continue;
         const landingOnPlayer =
           player.vy > 0 &&
           player.x + stage.playerW > other.x &&
@@ -361,7 +430,7 @@ app.prepare().then(() => {
 
   io.on("connection", (socket) => {
     socket.on("login", ({ playerName, password, sessionId }, cb) => {
-      if (password !== PASSWORD) return cb(false, "パスワードが違います");
+      if (password !== PASSWORD) return cb(false, "パスコードが違います");
       const trimmed = playerName.trim().slice(0, 16);
       if (!trimmed) return cb(false, "プレイヤー名を入力してください");
       socket.data.playerName = trimmed;
@@ -373,8 +442,10 @@ app.prepare().then(() => {
 
     socket.on("listRooms", () => socket.emit("rooms", [...rooms.values()].map(roomSummary)));
 
-    socket.on("createRoom", ({ name, mode, difficulty, maxPlayers, stageId }) => {
+    socket.on("createRoom", ({ name, mode, difficulty, maxPlayers, stageId, passcode }) => {
       if (!socket.data.playerName) return socket.emit("errorMessage", "ログインしてください");
+      const normalizedPasscode = normalizeRoomPasscode(passcode);
+      if (passcode && !normalizedPasscode) return socket.emit("errorMessage", "部屋のパスコードは4桁の数字で入力してください");
       const id = `room-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const normalizedStageId = normalizeStageId(mode, stageId);
       const room: RoomRuntime = {
@@ -390,17 +461,21 @@ app.prepare().then(() => {
         players: new Map()
       };
       rooms.set(id, room);
+      if (normalizedPasscode) roomPasscodes.set(id, createRoomPasscodeCredential(normalizedPasscode));
       joinRoom(io, socket, room);
       broadcastRooms(io);
     });
 
-    socket.on("joinRoom", (roomId) => {
+    socket.on("joinRoom", ({ roomId, passcode }, cb) => {
       const room = rooms.get(roomId);
-      if (!room) return socket.emit("errorMessage", "部屋が見つかりません");
-      if (room.players.size >= room.maxPlayers) return socket.emit("errorMessage", "部屋が満員です");
-      if (room.started) return socket.emit("errorMessage", "開始済みの部屋です");
+      if (!room) return cb(false, "部屋が見つかりません");
+      if (room.players.size >= room.maxPlayers + MAX_SPECTATORS_PER_ROOM) return cb(false, "部屋が満員です");
+      if (room.started) return cb(false, "開始済みの部屋です");
+      const credential = roomPasscodes.get(roomId);
+      if (credential && !verifyRoomPasscode(passcode, credential)) return cb(false, "部屋のパスコードが違います");
       joinRoom(io, socket, room);
       broadcastRooms(io);
+      cb(true);
     });
 
     socket.on("leaveRoom", () => leaveRoom(io, socket));
@@ -423,10 +498,26 @@ app.prepare().then(() => {
       io.to(room.id).emit("roomState", roomSnapshot(room));
     });
 
+    socket.on("setSpectator", (spectator, cb) => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      const player = room?.players.get(socket.id);
+      if (!room || !player || player.isCpu) return cb(false, "部屋が見つかりません");
+      if (room.started) return cb(false, "参加受付は締め切られました");
+      if (!spectator && player.spectator && racingPlayers(room).length >= room.maxPlayers) {
+        return cb(false, "出走枠が満員です");
+      }
+      if (!spectator && player.spectator && room.mode === "team") player.team = nextHumanTeam(room);
+      player.spectator = Boolean(spectator);
+      cb(true);
+      io.to(room.id).emit("roomState", roomSnapshot(room));
+      broadcastRooms(io);
+    });
+
     socket.on("startGame", () => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
-      if (!room || room.ownerId !== socket.id) return;
-      addCpuPlayers(room, Math.min(room.maxPlayers, CPU_TARGET_PLAYERS) - room.players.size);
+      if (!room || room.ownerId !== socket.id || room.started) return;
+      const racerCount = racingPlayers(room).length;
+      addCpuPlayers(room, Math.min(room.maxPlayers, CPU_TARGET_PLAYERS) - racerCount);
       room.started = true;
       room.startedAt = Date.now() + COUNTDOWN_MS;
       room.timeLimitMs = stageTimeoutMs(room.stageId);
@@ -435,10 +526,69 @@ app.prepare().then(() => {
       broadcastRooms(io);
     });
 
+    socket.on("removePlayer", (playerId) => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      if (!room || room.ownerId !== socket.id || room.started || playerId === socket.id) return;
+      const player = room.players.get(playerId);
+      if (!player || player.isCpu) return;
+      room.players.delete(playerId);
+      const targetSocket = io.sockets.sockets.get(playerId);
+      if (targetSocket) {
+        targetSocket.leave(room.id);
+        targetSocket.data.roomId = undefined;
+        targetSocket.emit("removedFromRoom", "ホストにより部屋から退出しました");
+      }
+      io.to(room.id).emit("roomState", roomSnapshot(room));
+      broadcastRooms(io);
+    });
+
+    socket.on("endGame", () => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      if (!room || room.ownerId !== socket.id || !room.started || room.finishedAt) return;
+      finishRoom(io, room, "hostEnded");
+    });
+
+    socket.on("retire", () => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      const player = room?.players.get(socket.id);
+      if (!room || !player || !room.started || room.finishedAt || player.isCpu || player.spectator || player.finishedAt || player.retiredAt) return;
+      if (room.startedAt && Date.now() < room.startedAt) return;
+
+      player.retiredAt = Date.now();
+      player.vx = 0;
+      player.vy = 0;
+      player.jumping = false;
+      player.onGround = false;
+      player.standingOnPlayerId = null;
+      player.standingOnPlatformIndex = null;
+      player.wallTouch = null;
+      player.chargeStartedAt = undefined;
+      player.jumpPressWasActionable = false;
+      player.input = {
+        left: false,
+        right: false,
+        jump: false,
+        jumpHeldMs: 0,
+        jumpRequestId: player.input.jumpRequestId,
+        seq: player.input.seq + 1
+      };
+
+      checkRoomEnd(io, room);
+      if (!room.finishedAt) io.to(room.id).emit("roomState", roomSnapshot(room));
+    });
+
+    socket.on("prepareRematch", () => {
+      const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
+      if (!room || room.ownerId !== socket.id || !room.finishedAt) return;
+      prepareRoomRematch(room);
+      io.to(room.id).emit("roomState", roomSnapshot(room));
+      broadcastRooms(io);
+    });
+
     socket.on("input", (input) => {
       const room = socket.data.roomId ? rooms.get(socket.data.roomId) : undefined;
       const player = room?.players.get(socket.id);
-      if (player && player.connected && input.seq >= player.input.seq) {
+      if (player && player.connected && !player.spectator && !player.retiredAt && input.seq >= player.input.seq) {
         const now = Date.now();
         if (room?.startedAt && now < room.startedAt) {
           player.chargeStartedAt = undefined;
@@ -484,6 +634,23 @@ app.prepare().then(() => {
   setInterval(() => cleanupRooms(io), 10 * 1000);
   httpServer.listen(PORT, () => console.log(`Sky Rush listening on http://localhost:${PORT}`));
 });
+
+function normalizeRoomPasscode(passcode?: string) {
+  const normalized = passcode?.trim() ?? "";
+  return /^\d{4}$/.test(normalized) ? normalized : undefined;
+}
+
+function createRoomPasscodeCredential(passcode: string) {
+  const salt = randomBytes(16);
+  return { salt, digest: scryptSync(passcode, salt, 32) };
+}
+
+function verifyRoomPasscode(passcode: string | undefined, credential: { salt: Buffer; digest: Buffer }) {
+  const normalized = normalizeRoomPasscode(passcode);
+  if (!normalized) return false;
+  const candidate = scryptSync(normalized, credential.salt, credential.digest.length);
+  return timingSafeEqual(candidate, credential.digest);
+}
 
 function createSessionId() {
   return `sr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
@@ -531,7 +698,10 @@ function joinRoom(
   leaveRoom(io, socket);
   socket.join(room.id);
   socket.data.roomId = room.id;
-  room.players.set(socket.id, makePlayer(socket.id, socket.data.playerName || "Player", room.players.size, room.mode, stageMetrics(room.stageId).spawnY, false, nextHumanTeam(room), socket.data.sessionId));
+  const racerCount = racingPlayers(room).length;
+  const player = makePlayer(socket.id, socket.data.playerName || "Player", racerCount, room.mode, stageMetrics(room.stageId).spawnY, false, nextHumanTeam(room), socket.data.sessionId);
+  player.spectator = racerCount >= room.maxPlayers;
+  room.players.set(socket.id, player);
   io.to(room.id).emit("roomState", roomSnapshot(room));
 }
 
@@ -555,8 +725,10 @@ function leaveRoom(io: SkyRushServer, socket: Pick<SkyRushSocket, "id" | "data" 
   }
   socket.data.roomId = undefined;
   const humanPlayers = [...room.players.values()].filter((player) => !player.isCpu);
-  if (humanPlayers.length === 0) rooms.delete(roomId);
-  else {
+  if (humanPlayers.length === 0) {
+    rooms.delete(roomId);
+    roomPasscodes.delete(roomId);
+  } else {
     const connectedOwner = humanPlayers.find((player) => player.connected) ?? humanPlayers[0];
     if (room.ownerId === socket.id || !room.players.get(room.ownerId)?.connected) room.ownerId = connectedOwner.id;
     io.to(room.id).emit("roomState", roomSnapshot(room));
@@ -580,6 +752,7 @@ function cleanupRooms(io: SkyRushServer) {
     const connectedHumans = humanPlayers.filter((player) => player.connected);
     if (humanPlayers.length === 0 || (connectedHumans.length === 0 && (!room.finishedAt || now - room.finishedAt > EMPTY_ROOM_TTL_MS))) {
       rooms.delete(roomId);
+      roomPasscodes.delete(roomId);
       changed = true;
       continue;
     }
@@ -596,12 +769,14 @@ function cleanupRooms(io: SkyRushServer) {
 
 function addCpuPlayers(room: RoomRuntime, count: number) {
   const roomForId = room.id.replace(/[^a-zA-Z0-9]/g, "");
-  for (let i = 0; i < count && room.players.size < room.maxPlayers; i += 1) {
+  let racerCount = racingPlayers(room).length;
+  for (let i = 0; i < count && racerCount < room.maxPlayers; i += 1) {
     const cpuNumber = [...room.players.values()].filter((player) => player.isCpu).length + 1;
     const id = `cpu-${roomForId}-${cpuNumber}`;
     const aiLevel: CpuLevel = cpuNumber % 2 === 0 ? "strong" : "weak";
     const levelLabel = aiLevel === "strong" ? "強" : "弱";
-    room.players.set(id, makePlayer(id, `CPU ${cpuNumber} ${levelLabel}`, room.players.size, room.mode, stageMetrics(room.stageId).spawnY, true, undefined, undefined, aiLevel));
+    room.players.set(id, makePlayer(id, `CPU ${cpuNumber} ${levelLabel}`, racerCount, room.mode, stageMetrics(room.stageId).spawnY, true, undefined, undefined, aiLevel));
+    racerCount += 1;
   }
 }
 
@@ -609,7 +784,7 @@ function nextHumanTeam(room: RoomRuntime) {
   if (room.mode !== "team") return undefined;
   const counts = [1, 2, 3, 4].map((team) => ({
     team,
-    count: [...room.players.values()].filter((player) => !player.isCpu && player.team === team).length
+    count: [...room.players.values()].filter((player) => !player.isCpu && !player.spectator && player.team === team).length
   }));
   return counts.sort((a, b) => a.count - b.count || a.team - b.team)[0].team;
 }
@@ -681,7 +856,7 @@ function updateWeakCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   const canJump = !player.aiNextJumpAt || now >= player.aiNextJumpAt;
   if (canJump && ((player.onGround && closeEnough) || player.wallTouch)) {
     const verticalGap = Math.max(220, player.y - target.y);
-    const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
+    const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => !other.spectator && !other.retiredAt && other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
     player.input.jumpHeldMs = Math.min(650, 330 + verticalGap * 0.62 + Math.random() * 90 + (teamAssist ? 90 : 0));
     player.input.jumpRequestId += 1;
     player.aiNextJumpAt = now + 560 + Math.random() * 260;
@@ -738,7 +913,7 @@ function updateStrongCpuInput(player: PlayerRuntime, room: RoomRuntime) {
   const flightMs = jumpTiming?.flightMs ?? 0;
   const targetReady = Boolean(target && flightMs && cpuPlatformSafeAt(target, now + flightMs));
   if (canJump && targetReady && ((player.onGround && closeEnough) || player.wallTouch)) {
-    const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
+    const teamAssist = room.mode === "team" && player.team && [...room.players.values()].some((other) => !other.spectator && !other.retiredAt && other.id !== player.id && other.team === player.team && Math.abs(other.x - player.x) < 180 && Math.abs(other.y - player.y) < 180);
     const chargeError = (1 - player.aiSkill) * 55 * (Math.random() * 2 - 1);
     player.input.jumpHeldMs = clamp(jumpHeldMs + chargeError + (teamAssist ? 90 : 0), 280, 650);
     player.input.jumpRequestId += 1;
@@ -932,7 +1107,7 @@ function emitEffect(io: SkyRushServer, room: RoomRuntime, payload: EffectBurst) 
 }
 
 function resolvePlayerPushes(io: SkyRushServer, room: RoomRuntime) {
-  const players = [...room.players.values()].filter((player) => player.connected && !player.finishedAt);
+  const players = [...room.players.values()].filter((player) => player.connected && !player.finishedAt && !player.retiredAt && !player.spectator);
   const now = Date.now();
   for (let pass = 0; pass < 3; pass += 1) {
     for (let i = 0; i < players.length; i += 1) {
