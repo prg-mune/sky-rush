@@ -355,7 +355,7 @@ export default function Home() {
           <div className="rulesPanel">
             <div className="panelHeader">
               <div>
-                <p className="eyebrow">Rules</p>
+                <p className="eyebrow">ルール</p>
                 <h2>遊び方</h2>
               </div>
               <button type="button" onClick={() => setShowRules(false)}>閉じる</button>
@@ -399,10 +399,10 @@ export default function Home() {
         <section className="panel auth">
           <div className="panelHeader">
             <div>
-              <p className="eyebrow">Entry Gate</p>
+              <p className="eyebrow">入場ゲート</p>
               <h2>ログイン</h2>
             </div>
-            <span className="panelBadge">v1.1 · build {BUILD_COMMIT}</span>
+            <span className="panelBadge">v1.1 · ビルド {BUILD_COMMIT}</span>
           </div>
           <label>
             プレイヤー名
@@ -437,14 +437,14 @@ export default function Home() {
           <div className="panel">
             <div className="panelHeader">
               <div>
-                <p className="eyebrow">Create Match</p>
+                <p className="eyebrow">部屋作成</p>
                 <h2>部屋を作成</h2>
               </div>
-              <span className="panelBadge">{maxPlayers} Racers</span>
+              <span className="panelBadge">最大 {maxPlayers}人</span>
             </div>
             <label>
               部屋名
-              <input value={roomName} onChange={(event) => setRoomName(event.target.value)} placeholder={`${playerName || "Player"}の部屋`} />
+              <input value={roomName} maxLength={24} onChange={(event) => setRoomName(event.target.value)} placeholder={`${playerName || "Player"}の部屋`} />
             </label>
             <label>
               ゲームモード
@@ -464,7 +464,7 @@ export default function Home() {
                     aria-pressed={difficulty === option}
                     onClick={() => setDifficulty(option)}
                   >
-                    <strong>{option.toUpperCase()}</strong>
+                    <strong>{difficultyLabel(option)}</strong>
                     <small>{option === "normal" ? "カラーあり" : "ノーカラー"}</small>
                   </button>
                 ))}
@@ -542,10 +542,10 @@ export default function Home() {
           <div className="panel">
             <div className="panelHeader">
               <div>
-                <p className="eyebrow">Match List</p>
+                <p className="eyebrow">部屋一覧</p>
                 <h2>参加可能な部屋</h2>
               </div>
-              <span className="panelBadge">{rooms.length} Rooms</span>
+              <span className="panelBadge">{rooms.length}部屋</span>
             </div>
             <div className="roomList">
               {rooms.length === 0 && <p className="muted">部屋はまだありません。</p>}
@@ -558,8 +558,8 @@ export default function Home() {
                       <small>出走 {entry.playerCount} / {entry.maxPlayers}</small>
                       {entry.spectatorCount > 0 && <small>観戦 {entry.spectatorCount}</small>}
                       <small>{difficultyLabel(entry.difficulty)}</small>
-                      {entry.requiresPasscode && <small className="lockedBadge">PASSCODE</small>}
-                      <small>{entry.started ? "STARTED" : "OPEN"}</small>
+                      {entry.requiresPasscode && <small className="lockedBadge">パスコード</small>}
+                      <small>{entry.started ? "開始済み" : "募集中"}</small>
                     </span>
                   </div>
                   <div className="roomJoinActions">
@@ -606,11 +606,11 @@ export default function Home() {
               <p className="muted">{stageLabel(room.stageId)}</p>
             </div>
             <div className="matchStats">
-              <span><strong>{racerCount} / {room.maxPlayers}</strong><small>Racers</small></span>
-              <span><strong>{spectatorCount}</strong><small>Spectators</small></span>
-              <span><strong>{room.players.filter((player) => player.connected).length}</strong><small>Online</small></span>
-              <span><strong>{stageClimbHeight(room.stageId)}m</strong><small>Course</small></span>
-              <span><strong>{difficultyLabel(room.difficulty)}</strong><small>Difficulty</small></span>
+              <span><strong>{racerCount} / {room.maxPlayers}</strong><small>出走者</small></span>
+              <span><strong>{spectatorCount}</strong><small>観戦者</small></span>
+              <span><strong>{room.players.filter((player) => player.connected).length}</strong><small>接続中</small></span>
+              <span><strong>{stageClimbHeight(room.stageId)}m</strong><small>コース全長</small></span>
+              <span><strong>{difficultyLabel(room.difficulty)}</strong><small>難易度</small></span>
             </div>
           </div>
           <div className="players">
@@ -626,7 +626,7 @@ export default function Home() {
                 </span>
                 <span className="playerMeta">
                   <strong>{player.name}</strong>
-                  <small>{player.isCpu ? "CPU Racer" : !player.connected ? "Offline" : player.spectator ? "Spectator" : "Racer"}{!player.spectator && player.team ? ` / Team ${player.team}` : ""}{player.id === room.ownerId ? " / Host" : ""}</small>
+                  <small>{player.isCpu ? "CPU出走者" : !player.connected ? "オフライン" : player.spectator ? "観戦者" : "出走者"}{!player.spectator && player.team ? ` / チーム ${player.team}` : ""}{player.id === room.ownerId ? " / ホスト" : ""}</small>
                 </span>
                 {isOwner && player.id !== socket?.id && !player.isCpu && (
                   <button className="removePlayerButton" type="button" onClick={() => removePlayerFromRoom(player)} aria-label={`${player.name}を退出させる`}>退出</button>
@@ -653,7 +653,7 @@ export default function Home() {
                   onClick={() => socket?.emit("setTeam", team)}
                   style={{ borderColor: teamCssColor(team), color: me.team === team ? "#17202a" : teamCssColor(team), background: me.team === team ? teamCssColor(team) : undefined }}
                 >
-                  Team {team}
+                  チーム {team}
                 </button>
               ))}
             </div>
@@ -672,7 +672,7 @@ export default function Home() {
             </div>
           )}
           <div className="actionBar">
-            {isOwner ? <button className="primary" disabled={!isConnected || roleChanging} onClick={() => socket?.emit("startGame")}>試合開始</button> : <span className="muted">Host: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
+            {isOwner ? <button className="primary" disabled={!isConnected || roleChanging} onClick={() => socket?.emit("startGame")}>試合開始</button> : <span className="muted">ホスト: {room.players.find((player) => player.id === room.ownerId)?.name}</span>}
           </div>
         </section>
       )}
@@ -682,7 +682,7 @@ export default function Home() {
           <div className="hud left">
             {broadcastMode ? (
               <>
-                LIVE<span className="broadcastStage"> / {stageLabel(room.stageId)}</span>
+                中継中<span className="broadcastStage"> / {stageLabel(room.stageId)}</span>
               </>
             ) : isSpectator ? "観戦モード" : `順位 ${socket.id ? rankOf(room, socket.id) : "-"} / ${liveLeaderboard.length} 位`}
           </div>
@@ -719,21 +719,21 @@ export default function Home() {
             <aside className="broadcastBoard" aria-label="ライブ順位">
               <div className="broadcastBoardHeader">
                 <span className="liveDot" />
-                <strong>LIVE RANKING</strong>
+                <strong>ライブ順位</strong>
               </div>
               <ol>
                 {liveLeaderboard.slice(0, 8).map((player, index) => (
                   <li key={player.id} className={player.id === spectatingPlayerId ? "focused" : ""}>
                     <b>{index + 1}</b>
                     <span>{player.name}</span>
-                    <strong>{player.finishedAt ? "GOAL" : player.retiredAt ? "RETIRED" : `${Math.round(player.altitude)}m`}</strong>
+                    <strong>{player.finishedAt ? "ゴール" : player.retiredAt ? "リタイア" : `${Math.round(player.altitude)}m`}</strong>
                   </li>
                 ))}
               </ol>
             </aside>
           )}
           {countdownLabel && <div className="countdown">{countdownLabel}</div>}
-          {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">LAST SPURT</div>}
+          {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">ラストスパート</div>}
           {(isSpectator || broadcastMode) && (
             <div className="spectatorPanel">
               <strong>{broadcastMode ? "大会中継" : "観戦中"}</strong>
@@ -746,7 +746,7 @@ export default function Home() {
           )}
           {isOwner && (
             <div className="hostMatchControls">
-              <strong>HOST</strong>
+              <strong>ホスト</strong>
               {me?.spectator && (
                 <button type="button" className={broadcastMode ? "active" : ""} onClick={() => setBroadcastMode((current) => !current)}>
                   {broadcastMode ? "中継を終了" : "中継モード"}
@@ -767,10 +767,10 @@ export default function Home() {
       {screen === "result" && (
         <section className="panel resultPanel">
           <div className="resultHero">
-            <p className="eyebrow">Result Board</p>
+            <p className="eyebrow">リザルト</p>
             <h2>リザルト</h2>
-            {room?.winnerId && <p className="winner">Winner: {room.players.find((player) => player.id === room.winnerId)?.name}</p>}
-            {room?.winningTeam && <p className="winner">Winning Team: Team {room.winningTeam}</p>}
+            {room?.winnerId && <p className="winner">優勝: {room.players.find((player) => player.id === room.winnerId)?.name}</p>}
+            {room?.winningTeam && <p className="winner">優勝チーム: チーム {room.winningTeam}</p>}
           </div>
           <table>
             <thead>
@@ -782,7 +782,7 @@ export default function Home() {
                   <td>{row.rank}</td>
                   <td>{row.playerName}{row.team ? ` / T${row.team}` : ""}</td>
                   <td>{row.altitude}m</td>
-                  <td>{row.retired ? "RETIRED" : row.goalTimeMs ? `${(row.goalTimeMs / 1000).toFixed(2)}s` : "-"}</td>
+                  <td>{row.retired ? "リタイア" : row.goalTimeMs ? `${(row.goalTimeMs / 1000).toFixed(2)}s` : "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -851,34 +851,34 @@ function rankOf(room: RoomState, socketId: string) {
 
 function screenLabel(screen: Screen) {
   const labels: Record<Screen, string> = {
-    login: "ENTRY",
-    lobby: "LOBBY",
-    waiting: "READY ROOM",
-    game: "MATCH",
-    result: "RESULT"
+    login: "ログイン",
+    lobby: "ロビー",
+    waiting: "待機室",
+    game: "試合中",
+    result: "リザルト"
   };
   return labels[screen];
 }
 
 function connectionStatusLabel(status: ConnectionStatus) {
   const labels: Record<ConnectionStatus, string> = {
-    connecting: "CONNECTING",
-    online: "ONLINE",
-    offline: "OFFLINE"
+    connecting: "接続中",
+    online: "オンライン",
+    offline: "オフライン"
   };
   return labels[status];
 }
 
 function difficultyLabel(difficulty: DifficultyMode) {
-  return difficulty === "hard" ? "HARD" : "NORMAL";
+  return difficulty === "hard" ? "ハード" : "ノーマル";
 }
 
 function noticeLabel(kind: NoticeKind) {
   const labels: Record<NoticeKind, string> = {
-    info: "INFO",
-    success: "OK",
-    warning: "WAIT",
-    error: "ERROR"
+    info: "情報",
+    success: "完了",
+    warning: "注意",
+    error: "エラー"
   };
   return labels[kind];
 }
