@@ -338,12 +338,12 @@ function syncSprites(
     if (!group) {
       group = createPlayerSprite(scene, player);
       label = scene.add.text(0, 0, player.name, {
-        fontFamily: "Arial",
+        fontFamily: "Noto Sans JP, sans-serif",
         fontSize: "15px",
         color: "#ffffff",
         stroke: "#102538",
         strokeThickness: 4
-      });
+      }).setOrigin(0.5).setDepth(100);
       groups.set(player.id, group);
       labels.set(player.id, label);
     }
@@ -358,8 +358,19 @@ function syncSprites(
     motionFx.previousJumping = player.jumping;
 
     const chargeRatio = player.id === localPlayerId && !player.jumping ? localChargeRatio : 0;
-    updatePlayerSprite(group, player, motionFx, chargeRatio, now);
-    label?.setPosition(player.x - 18, player.y - 34).setAlpha(player.connected ? 1 : 0.35);
+    const isLocal = player.id === localPlayerId;
+    updatePlayerSprite(group, player, motionFx, chargeRatio, now, isLocal);
+    if (label) {
+      const crowded = racers.length >= 12;
+      label
+        .setText(isLocal ? `あなた / ${player.name}` : player.name)
+        .setPosition(player.x + stage.playerW / 2, player.y - (isLocal ? 53 : 34))
+        .setFontSize(isLocal ? 16 : crowded ? 13 : 15)
+        .setColor(isLocal ? "#fff1a8" : "#ffffff")
+        .setBackgroundColor(isLocal ? "#102538dd" : "#00000000")
+        .setPadding(isLocal ? 7 : 0, isLocal ? 3 : 0)
+        .setAlpha(player.connected ? isLocal ? 1 : crowded ? 0.68 : 1 : 0.35);
+    }
   }
   for (const [id, group] of groups) {
     if (!active.has(id)) {
@@ -454,6 +465,8 @@ function createPlayerSprite(scene: import("phaser").Scene, player: RoomState["pl
   const bodyColor = playerColor(player);
   const bibColor = 0xf8fbff;
   const objects = [
+    scene.add.ellipse(0, 0, 54, 18, 0xffd166, 0.08).setStrokeStyle(3, 0xffd166, 0.95).setName("selfHalo"),
+    scene.add.triangle(0, 0, 0, 0, 14, 0, 7, 10, 0xffd166, 1).setName("selfMarker"),
     scene.add.ellipse(0, 0, 40, 12, 0x061522, 0.36).setName("shadow"),
     scene.add.ellipse(0, 0, 38, 34, bodyColor).setStrokeStyle(3, 0xffffff, 0.95).setName("body"),
     scene.add.circle(0, 0, 8, shadeColor(bodyColor, 0.18), 0.85).setName("topBlob"),
@@ -482,7 +495,8 @@ function updatePlayerSprite(
   player: RoomState["players"][number],
   motionFx: PlayerMotionFx,
   chargeRatio: number,
-  now: number
+  now: number,
+  isLocal: boolean
 ) {
   const centerX = player.x + 17;
   const centerY = player.y + 23;
@@ -524,7 +538,9 @@ function updatePlayerSprite(
   const faceOffsetX = pushStrength * motionFx.pushDirection * 6;
   const bob = player.jumping ? -6 : bodyOffsetY;
   const verticalStretch = Math.max(0, squashY - 1);
-  const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number }> = {
+  const positions: Record<string, { x: number; y: number; angle?: number; scaleX?: number; scaleY?: number; visible?: boolean }> = {
+    selfHalo: { x: centerX, y: player.y + 47, scaleX: 1 + Math.sin(now / 140) * 0.08, scaleY: 1, visible: isLocal },
+    selfMarker: { x: centerX - 7, y: player.y - 29 + Math.sin(now / 130) * 3, visible: isLocal },
     shadow: { x: centerX, y: player.y + 47, scaleX: player.jumping ? 0.56 : 1, scaleY: 1 },
     body: { x: centerX, y: centerY + 5 + bob, angle: bodyAngle, scaleX: squashX, scaleY: squashY },
     topBlob: { x: centerX - 7 * faceDir, y: centerY - 12 + bob - verticalStretch * 8, scaleX: squashX, scaleY: squashY },
@@ -547,15 +563,20 @@ function updatePlayerSprite(
       setVisible?: (visible: boolean) => void;
       setRotation?: (rotation: number) => void;
       setScale?: (x: number, y?: number) => void;
+      setDepth?: (depth: number) => void;
     };
     const position = positions[object.name];
     if (!position) return;
     object.setPosition(position.x, position.y);
-    object.setAlpha(player.connected ? 1 : 0.35);
+    const isSelfIndicator = object.name === "selfHalo" || object.name === "selfMarker";
+    const indicatorPulse = 0.76 + Math.sin(now / 120) * 0.18;
+    object.setAlpha(player.connected ? isSelfIndicator ? indicatorPulse : 1 : 0.35);
+    object.setVisible?.(position.visible ?? true);
     if (object.name === "mouth") object.setVisible?.(!isFalling);
     if (object.name === "mouthOpen") object.setVisible?.(isFalling);
     object.setRotation?.(PhaserMathDegToRad(position.angle ?? 0));
     object.setScale?.(position.scaleX ?? 1, position.scaleY ?? position.scaleX ?? 1);
+    object.setDepth?.(isLocal ? isSelfIndicator ? 90 : 80 : 50);
   });
 }
 
