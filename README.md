@@ -9,6 +9,9 @@ Sky Rush は、ブラウザで遊べるオンライン登山レースゲーム�
 - 複数ステージ、難易度、コース高度の選択
 - 消える床、伸縮バー、押し合い、味方踏み台、チーム協力ギミック
 - スマホ縦持ち操作
+- 出走・観戦の選択、ホスト操作、大会中継表示
+- 部屋ごとの4桁入室パスコード
+- ホストによる試合結果CSVダウンロード
 - 接続断からの再接続、切断中プレイヤー表示、空部屋クリーンアップ
 - ステージ到達性チェック
 - Docker / ECS 手動デプロイ用スクリプト
@@ -17,7 +20,7 @@ Sky Rush は、ブラウザで遊べるオンライン登山レースゲーム�
 
 1. ブラウザで `http://localhost:3000` またはデプロイ先URLを開きます。
 2. プレイヤー名を入力します。
-3. パスワードに `progress4649` を入力します。
+3. ログインパスコードに `progress4649` を入力します。
 4. ロビーで部屋を作るか、既存の部屋に参加します。
 5. ホストが開始すると、足りない人数はCPUで補充されます。
 
@@ -55,17 +58,21 @@ http://localhost:3000
 
 ```powershell
 npm.cmd run check:stages
-npx.cmd tsc --noEmit
+npm.cmd run typecheck
+npm.cmd run lint
 npx.cmd tsc -p tsconfig.server.json
 npm.cmd run build
+npm.cmd run test:host-controls
 ```
 
 それぞれの意味:
 
 - `check:stages`: 全ステージのゴール前安全帯と足場到達性を検査
-- `tsc --noEmit`: フロント/共有コードの型チェック
+- `typecheck`: フロント/共有コードの型チェック
+- `lint`: Next.js/ReactコードのLint
 - `tsc -p tsconfig.server.json`: サーバー側の型チェック
 - `npm run build`: Next.js とサーバーを本番ビルド
+- `test:host-controls`: ホスト操作、観戦、リタイア、再戦の統合テスト
 
 ## 本番相当のローカル起動
 
@@ -182,7 +189,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\delete-ecs.ps1 -DeleteEcr
 - ECS 手動デプロイ手順
 - CloudWatch Logs の確認観点
 - トラブルシュート
-- v1.0 時点の制限事項
+- 現在の制限事項
 
 ## 現在の設計課題
 

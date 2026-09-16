@@ -2,13 +2,17 @@
 
 この文書は、Sky Rush をローカル確認、手動デプロイ、運用確認するための手順です。GitHub Actions 自動デプロイは現時点では対象外です。
 
+- 対象バージョン: v1.1
+- 更新日: 2026-09-16
+
 ## 1. リリース前チェックリスト
 
 コード変更後は、以下を順番に実行します。
 
 ```powershell
 npm.cmd run check:stages
-npx.cmd tsc --noEmit
+npm.cmd run typecheck
+npm.cmd run lint
 npx.cmd tsc -p tsconfig.server.json
 npm.cmd run build
 npm.cmd run test:host-controls
@@ -17,10 +21,12 @@ npm.cmd run test:host-controls
 期待する状態:
 
 - `Stage layout check passed.`
-- TypeScript エラーがない
+- フロントとサーバーのTypeScriptエラーがない
+- ESLintの警告・エラーがない
 - `next build` が成功する
 - `Host control integration test passed.`
 - webpack cache の warning は、ビルド成功とは別扱いです
+- ビルド環境からGoogle Fontsへ接続できない場合、`Failed to download the stylesheet`の警告が出ます。フォントはブラウザが実行時に外部取得し、取得できない場合は`sans-serif`にフォールバックします
 
 20人CPU負荷テストは、ローカルサーバー起動後に「3. 20人CPU負荷テスト」の手順で実行します。
 
@@ -48,6 +54,8 @@ http://localhost:3000
 - バトル/チームのステージを選べる
 - 開始後にCPUが補充される
 - スマホ幅でもボタンやHUDが重ならない
+- 操作・状態ラベルが日本語で表示され、`Noto Sans JP`が読み込まれる
+- 上部通知の表示・消去でロビーや試合画面の位置が動かない
 - 通信断時の表示が出る
 - 結果画面へ遷移できる
 - カウントダウン後に出走者がリタイアでき、試合継続中は観戦へ移る
@@ -95,7 +103,7 @@ npm.cmd run test:cpu20
 ```powershell
 $env:SKY_RUSH_URL="http://127.0.0.1:3000"
 $env:SKY_RUSH_LOAD_TEST_MS="180000"
-$env:SKY_RUSH_STAGE_ID="battle_08_lightning_ridge"
+$env:SKY_RUSH_STAGE_ID="battle_03_cloud_jumble"
 $env:SKY_RUSH_LOAD_PLAYERS="20"
 npm.cmd run test:cpu20
 ```
@@ -225,22 +233,25 @@ npm.cmd run check:stages
 
 検査が通っていても手触りとして難しすぎる場合は、ステージ定義を調整します。
 
-## 7. v1.0 時点の制限事項
+## 7. 現在の制限事項
 
 - サーバーはメモリ上でルーム状態を管理します
 - ECS タスクを複数台に増やす場合、同じ部屋の参加者が別タスクに分かれないよう、スティッキーセッションまたは共有状態管理が必要です
-- パスワードは現在固定値です
+- ログインパスコードは現在固定値です
+- `Noto Sans JP`はGoogle Fontsの外部配信のため、クライアントが外部フォントを取得できない場合は`sans-serif`で表示されます
 - GitHub Actions 自動デプロイは未整備です
 
 ## 8. リリース作業メモ
 
-v1.0 化するときの目安:
+v1.1以降のリリース目安:
 
 1. `npm.cmd run check:stages`
-2. `npx.cmd tsc --noEmit`
-3. `npx.cmd tsc -p tsconfig.server.json`
-4. `npm.cmd run build`
-5. 本番相当のローカル起動確認
-6. 必要ならECSへ手動デプロイ
-7. `package.json` の version を `1.0.0` に更新
-8. Git tag / GitHub release を作成
+2. `npm.cmd run typecheck`
+3. `npm.cmd run lint`
+4. `npx.cmd tsc -p tsconfig.server.json`
+5. `npm.cmd run build`
+6. `npm.cmd run test:host-controls`
+7. 本番相当のローカル起動確認
+8. 必要ならECSへ手動デプロイ
+9. `package.json`のversionとリリースタグを揃える
+10. Git tag / GitHub releaseを作成
