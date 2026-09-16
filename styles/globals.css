@@ -153,27 +153,122 @@ h2 {
 }
 
 .statusRail {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  min-height: 38px;
+  height: 40px;
   margin-bottom: 18px;
   border: 1px solid rgba(122, 162, 189, 0.38);
   border-radius: 8px;
-  padding: 9px 12px;
+  padding: 0 10px;
+  overflow: hidden;
   background: rgba(9, 19, 28, 0.58);
   color: #b7cfe0;
   font-size: 13px;
 }
 
-.statusRail strong {
+.statusIdentity,
+.statusContext,
+.statusNotice {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.statusIdentity {
+  gap: 9px;
+  white-space: nowrap;
+}
+
+.statusIdentity strong,
+.statusNotice strong {
   color: #ffffff;
 }
 
-.statusRail span:not(.statusDot) {
+.statusScreen,
+.statusSlot {
   border-left: 1px solid rgba(255, 255, 255, 0.16);
-  padding-left: 10px;
+  margin-left: 9px;
+  padding-left: 9px;
+}
+
+.statusSlot {
+  min-width: 0;
+}
+
+.statusSlot:empty {
+  margin-left: 0;
+  border-left: 0;
+  padding-left: 0;
+}
+
+.statusContext {
+  gap: 7px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.statusRoom,
+.statusStage {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusRoom {
+  flex: 0 1 auto;
+}
+
+.statusStage {
+  flex: 1 1 auto;
+}
+
+.statusDifficulty {
+  flex: none;
+}
+
+.statusNotice {
+  gap: 8px;
+  width: 100%;
+}
+
+.statusNotice strong {
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.statusMessage {
+  min-width: 0;
+  overflow: hidden;
+  color: #d8ecf7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusNotice button {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: 50%;
+  padding: 0;
+  line-height: 1;
+}
+
+.statusNotice.info strong {
+  color: #62d2ff;
+}
+
+.statusNotice.success strong {
+  color: #4fe0a7;
+}
+
+.statusNotice.warning strong {
+  color: #ffd47a;
+}
+
+.statusNotice.error strong {
+  color: #ff7c87;
 }
 
 .statusDot {
@@ -785,57 +880,6 @@ input[type="range"] {
   margin-top: 18px;
 }
 
-.toast {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  border: 1px solid #4f89a8;
-  background: #10202d;
-  padding: 12px;
-  border-radius: 6px;
-}
-
-.toast strong {
-  color: #ffffff;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
-.toast span {
-  min-width: 0;
-  color: #d8ecf7;
-}
-
-.toast button {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 50%;
-  line-height: 1;
-}
-
-.toast.info {
-  border-color: #62d2ff;
-  background: #10283a;
-}
-
-.toast.success {
-  border-color: #4fe0a7;
-  background: #123226;
-}
-
-.toast.warning {
-  border-color: #ffd47a;
-  background: #332914;
-}
-
-.toast.error {
-  border-color: #ff6b6b;
-  background: #3c1d22;
-}
-
 .rulesOverlay {
   position: fixed;
   inset: 0;
@@ -1385,8 +1429,33 @@ tbody tr:nth-child(1) td {
   }
 
   .statusRail {
-    gap: 8px;
+    padding: 0 8px;
     font-size: 12px;
+  }
+
+  .statusIdentity {
+    gap: 6px;
+  }
+
+  .statusScreen,
+  .statusSlot {
+    margin-left: 6px;
+    padding-left: 6px;
+  }
+
+  .statusContext,
+  .statusNotice {
+    gap: 5px;
+  }
+
+  .statusRoom,
+  .statusRoomSeparator {
+    display: none;
+  }
+
+  .statusNotice button {
+    width: 22px;
+    height: 22px;
   }
 
   .panelHeader,

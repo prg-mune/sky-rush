@@ -290,6 +290,20 @@ export default function Home() {
     socket?.emit("prepareRematch");
   }
 
+  function downloadResultsCsv() {
+    if (!room || results.length === 0) return;
+    const csv = buildResultsCsv(room, results);
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = resultCsvFilename(room);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function changeRole(spectator: boolean) {
     if (!socket || roleChanging || me?.spectator === spectator) return;
     setRoleChanging(true);
@@ -312,19 +326,29 @@ export default function Home() {
       </header>
 
       <div className="statusRail">
-        <span className={`statusDot ${connectionStatus}`} />
-        <strong>{connectionStatusLabel(connectionStatus)}</strong>
-        <span>{screenLabel(screen)}</span>
-        {room && <span>{room.name} / {stageLabel(room.stageId)} / {difficultyLabel(room.difficulty)}</span>}
-      </div>
-
-      {notice && (
-        <div className={`toast ${notice.kind}`} role="status">
-          <strong>{noticeLabel(notice.kind)}</strong>
-          <span>{notice.text}</span>
-          <button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">x</button>
+        <div className="statusIdentity">
+          <span className={`statusDot ${connectionStatus}`} />
+          <strong>{connectionStatusLabel(connectionStatus)}</strong>
+          <span className="statusScreen">{screenLabel(screen)}</span>
         </div>
-      )}
+        <div className="statusSlot" aria-live="polite">
+          {notice ? (
+            <div className={`statusNotice ${notice.kind}`} role="status" title={notice.text}>
+              <strong>{noticeLabel(notice.kind)}</strong>
+              <span className="statusMessage">{notice.text}</span>
+              <button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">x</button>
+            </div>
+          ) : room ? (
+            <div className="statusContext" title={`${room.name} / ${stageLabel(room.stageId)} / ${difficultyLabel(room.difficulty)}`}>
+              <span className="statusRoom">{room.name}</span>
+              <span className="statusRoomSeparator" aria-hidden="true">/</span>
+              <span className="statusStage">{stageLabel(room.stageId)}</span>
+              <span aria-hidden="true">/</span>
+              <span className="statusDifficulty">{difficultyLabel(room.difficulty)}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {showRules && (
         <section className="rulesOverlay" role="dialog" aria-modal="true" aria-label="ルール">
@@ -764,6 +788,7 @@ export default function Home() {
             </tbody>
           </table>
           <div className="actionBar">
+            {isOwner && <button onClick={downloadResultsCsv}>CSVダウンロード</button>}
             {isOwner && <button onClick={prepareRematch}>同じ設定で再戦</button>}
             <button className="primary" onClick={leaveToLobby}>ロビーへ戻る</button>
           </div>
@@ -771,6 +796,52 @@ export default function Home() {
       )}
     </main>
   );
+}
+
+function buildResultsCsv(room: RoomState, results: ResultRow[]) {
+  const rows: Array<Array<string | number>> = [
+    ["Sky Rush 試合結果"],
+    ["部屋", room.name],
+    ["ステージ", stageLabel(room.stageId)],
+    ["難易度", difficultyLabel(room.difficulty)],
+    ["開始日時", room.startedAt ? new Date(room.startedAt).toLocaleString("ja-JP") : ""],
+    ["終了日時", room.finishedAt ? new Date(room.finishedAt).toLocaleString("ja-JP") : ""],
+    ["終了理由", finishReasonLabel(room.finishReason)],
+    ["ビルドコミット", BUILD_COMMIT],
+    [],
+    ["順位", "プレイヤー名", "チーム", "結果", "ゴール時間（秒）", "高度（m）"],
+    ...results.map((row) => [
+      row.rank,
+      row.playerName,
+      row.team ? `Team ${row.team}` : "",
+      row.retired ? "RETIRED" : row.goalTimeMs !== undefined ? "GOAL" : "UNFINISHED",
+      row.goalTimeMs !== undefined ? (row.goalTimeMs / 1000).toFixed(2) : "",
+      row.altitude
+    ])
+  ];
+  return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+function csvCell(value: string | number) {
+  let text = String(value);
+  if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function resultCsvFilename(room: RoomState) {
+  const roomName = room.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 30) || "result";
+  const timestamp = new Date(room.finishedAt || Date.now()).toISOString().replace(/[:.]/g, "-");
+  return `sky-rush-${roomName}-${timestamp}.csv`;
+}
+
+function finishReasonLabel(reason: RoomState["finishReason"]) {
+  const labels: Record<NonNullable<RoomState["finishReason"]>, string> = {
+    allHumansFinished: "全プレイヤー完了",
+    allRacersFinished: "全CPU完了",
+    timeout: "タイムアウト",
+    hostEnded: "ホスト終了"
+  };
+  return reason ? labels[reason] : "";
 }
 
 function rankOf(room: RoomState, socketId: string) {
