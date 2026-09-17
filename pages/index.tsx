@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { loadGameAudioPreference, playGameSound, setGameAudioEnabled, unlockGameAudio } from "../src/game-audio";
 import type {
   ClientToServerEvents,
   DifficultyMode,
@@ -58,6 +59,23 @@ export default function Home() {
   const [broadcastMode, setBroadcastMode] = useState(false);
   const [roleChanging, setRoleChanging] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showGoalCelebration, setShowGoalCelebration] = useState(false);
+  const localFinishedAtRef = useRef<number | undefined>();
+
+  useEffect(() => {
+    setSoundEnabled(loadGameAudioPreference());
+  }, []);
+
+  useEffect(() => {
+    const unlock = () => void unlockGameAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   useEffect(() => {
     const nextSocket: TypedSocket = io({ transports: ["websocket"] });
@@ -176,6 +194,26 @@ export default function Home() {
   const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - synchronizedNow);
   const isLastSpurt = Boolean(me && room && me.altitude > stageClimbHeight(room.stageId) * 0.84 && !room.finishedAt);
   const isSpectator = Boolean((me?.finishedAt || me?.retiredAt || me?.spectator) && room && !room.finishedAt);
+
+  useEffect(() => {
+    if (!me?.finishedAt) {
+      localFinishedAtRef.current = undefined;
+      setShowGoalCelebration(false);
+      return;
+    }
+    if (localFinishedAtRef.current === me.finishedAt) return;
+    localFinishedAtRef.current = me.finishedAt;
+    setShowGoalCelebration(true);
+    playGameSound("goal");
+    const timer = window.setTimeout(() => setShowGoalCelebration(false), 1900);
+    return () => window.clearTimeout(timer);
+  }, [me?.finishedAt]);
+
+  useEffect(() => {
+    if (screen !== "result") return;
+    const timer = window.setTimeout(() => playGameSound("result"), 380);
+    return () => window.clearTimeout(timer);
+  }, [screen]);
 
   useEffect(() => {
     if (!selectableStages.some((stage) => stage.id === stageId)) {
@@ -313,6 +351,13 @@ export default function Home() {
     });
   }
 
+  function toggleSound() {
+    const nextEnabled = !soundEnabled;
+    setSoundEnabled(nextEnabled);
+    setGameAudioEnabled(nextEnabled);
+    if (nextEnabled) void unlockGameAudio();
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -320,6 +365,9 @@ export default function Home() {
           <h1 className="titleLogo" aria-label="Sky Rush">SKY RUSH</h1>
         </div>
         <div className="topbarActions">
+          <button type="button" className="soundToggle" aria-pressed={soundEnabled} onClick={toggleSound} title={soundEnabled ? "効果音をオフにする" : "効果音をオンにする"}>
+            音声 {soundEnabled ? "オン" : "オフ"}
+          </button>
           <button type="button" onClick={() => setShowRules(true)}>ルール</button>
           {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
         </div>
@@ -734,6 +782,13 @@ export default function Home() {
           )}
           {countdownLabel && <div className="countdown">{countdownLabel}</div>}
           {isLastSpurt && !countdownLabel && <div className="lastSpurtBanner">ラストスパート</div>}
+          {showGoalCelebration && (
+            <div className="goalCelebration" role="status">
+              <div className="goalBurst" aria-hidden="true" />
+              <strong>GOAL</strong>
+              <span>{socket.id ? rankOf(room, socket.id) : "-"}位でフィニッシュ</span>
+            </div>
+          )}
           {(isSpectator || broadcastMode) && (
             <div className="spectatorPanel">
               <strong>{broadcastMode ? "大会中継" : "観戦中"}</strong>
@@ -767,18 +822,32 @@ export default function Home() {
       {screen === "result" && (
         <section className="panel resultPanel">
           <div className="resultHero">
+            <div className="resultConfetti" aria-hidden="true">
+              {Array.from({ length: 18 }, (_, index) => (
+                <span key={index} style={{ "--confetti-index": index } as CSSProperties} />
+              ))}
+            </div>
             <p className="eyebrow">リザルト</p>
-            <h2>リザルト</h2>
+            <h2>試合終了</h2>
             {room?.winnerId && <p className="winner">優勝: {room.players.find((player) => player.id === room.winnerId)?.name}</p>}
             {room?.winningTeam && <p className="winner">優勝チーム: チーム {room.winningTeam}</p>}
+          </div>
+          <div className="resultPodium" aria-label="上位3名">
+            {results.slice(0, 3).map((row) => (
+              <div key={`podium-${row.rank}-${row.playerName}`} className={`podiumPlace place${row.rank}`}>
+                <span>{row.rank}位</span>
+                <strong>{row.playerName}</strong>
+                <small>{resultPerformance(row)}</small>
+              </div>
+            ))}
           </div>
           <table>
             <thead>
               <tr><th>順位</th><th>プレイヤー</th><th>高度</th><th>結果 / ゴール時間</th></tr>
             </thead>
             <tbody>
-              {results.map((row) => (
-                <tr key={`${row.rank}-${row.playerName}`}>
+              {results.map((row, index) => (
+                <tr key={`${row.rank}-${row.playerName}`} style={{ "--result-row-index": index } as CSSProperties}>
                   <td>{row.rank}</td>
                   <td>{row.playerName}{row.team ? ` / T${row.team}` : ""}</td>
                   <td>{row.altitude}m</td>
@@ -820,6 +889,12 @@ function buildResultsCsv(room: RoomState, results: ResultRow[]) {
     ])
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+function resultPerformance(row: ResultRow) {
+  if (row.retired) return "リタイア";
+  if (row.goalTimeMs !== undefined) return `${(row.goalTimeMs / 1000).toFixed(2)}秒`;
+  return `${row.altitude}m`;
 }
 
 function csvCell(value: string | number) {

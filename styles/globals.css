@@ -79,6 +79,12 @@ button:disabled {
   gap: 10px;
 }
 
+.soundToggle[aria-pressed="true"] {
+  border-color: #62d2ff;
+  background: #173e50;
+  color: #d9f6ff;
+}
+
 h1,
 h2,
 p {
@@ -1133,6 +1139,56 @@ input[type="range"] {
   font-weight: 900;
 }
 
+.goalCelebration {
+  position: absolute;
+  z-index: 8;
+  top: 38%;
+  left: 50%;
+  display: grid;
+  min-width: 250px;
+  transform: translate(-50%, -50%);
+  place-items: center;
+  pointer-events: none;
+  animation: goalCelebrationIn 1.9s ease both;
+}
+
+.goalCelebration strong {
+  position: relative;
+  color: #ffd47a;
+  font-family: Impact, Haettenschweiler, "Arial Black", sans-serif;
+  font-size: 76px;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow:
+    0 5px 0 #7b4817,
+    0 10px 24px rgba(0, 0, 0, 0.48),
+    0 0 3px #ffffff;
+}
+
+.goalCelebration span {
+  position: relative;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 6px;
+  padding: 7px 13px;
+  background: rgba(8, 19, 30, 0.9);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.goalBurst {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border: 5px solid rgba(255, 212, 122, 0.72);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 16px rgba(98, 210, 255, 0.2),
+    0 0 0 32px rgba(255, 107, 107, 0.12);
+  animation: goalBurstExpand 1.25s ease-out both;
+}
+
 .spectatorPanel {
   position: absolute;
   z-index: 4;
@@ -1329,6 +1385,7 @@ input[type="range"] {
 }
 
 .resultHero {
+  position: relative;
   margin: -22px -22px 18px;
   padding: 22px;
   background:
@@ -1337,9 +1394,103 @@ input[type="range"] {
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
 
+.resultHero > :not(.resultConfetti) {
+  position: relative;
+  z-index: 1;
+}
+
+.resultConfetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.resultConfetti span {
+  --confetti-color: #ffd47a;
+  position: absolute;
+  top: -20px;
+  left: calc((var(--confetti-index) + 0.5) * 5.55%);
+  width: 7px;
+  height: 15px;
+  background: var(--confetti-color);
+  animation: resultConfettiFall 1.55s calc(var(--confetti-index) * 35ms) ease-in both;
+}
+
+.resultConfetti span:nth-child(3n + 2) {
+  --confetti-color: #62d2ff;
+  height: 9px;
+}
+
+.resultConfetti span:nth-child(3n) {
+  --confetti-color: #ff6b6b;
+  width: 11px;
+}
+
 .resultHero h2 {
   margin-bottom: 8px;
   font-size: 30px;
+}
+
+.resultPodium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  min-height: 150px;
+  margin: 0 0 22px;
+}
+
+.podiumPlace {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 105px;
+  border-top: 4px solid #9eb4c4;
+  padding: 15px 13px 12px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: center;
+  animation: podiumRise 560ms ease both;
+}
+
+.podiumPlace.place1 {
+  order: 2;
+  min-height: 142px;
+  border-top-color: #ffd47a;
+  background: rgba(255, 212, 122, 0.12);
+}
+
+.podiumPlace.place2 {
+  order: 1;
+  min-height: 120px;
+  border-top-color: #d5e0e7;
+  animation-delay: 90ms;
+}
+
+.podiumPlace.place3 {
+  order: 3;
+  border-top-color: #d89252;
+  animation-delay: 180ms;
+}
+
+.podiumPlace span {
+  color: #ffd47a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.podiumPlace strong {
+  overflow: hidden;
+  margin-top: 6px;
+  color: #ffffff;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podiumPlace small {
+  margin-top: 4px;
+  color: #b7cfe0;
 }
 
 table {
@@ -1366,12 +1517,89 @@ tbody tr:nth-child(1) td {
   font-weight: 800;
 }
 
+.resultPanel tbody tr {
+  animation: resultRowIn 360ms calc(var(--result-row-index) * 45ms + 240ms) ease both;
+}
+
 @keyframes spurtPulse {
   from {
     opacity: 0.45;
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes goalCelebrationIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -35%) scale(0.72);
+  }
+  18%,
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1.06);
+  }
+}
+
+@keyframes goalBurstExpand {
+  from {
+    opacity: 1;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@keyframes resultConfettiFall {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.18;
+    transform: translateY(190px) rotate(520deg);
+  }
+}
+
+@keyframes podiumRise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes resultRowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goalCelebration,
+  .goalBurst,
+  .resultConfetti span,
+  .podiumPlace,
+  .resultPanel tbody tr {
+    animation: none;
   }
 }
 
@@ -1519,6 +1747,14 @@ tbody tr:nth-child(1) td {
     font-size: 72px;
   }
 
+  .goalCelebration strong {
+    font-size: 58px;
+  }
+
+  .goalCelebration span {
+    font-size: 14px;
+  }
+
   .broadcastBoard {
     top: 58px;
     right: 10px;
@@ -1574,6 +1810,19 @@ tbody tr:nth-child(1) td {
 }
 
 @media (max-width: 520px) {
+  .resultPodium {
+    gap: 5px;
+  }
+
+  .podiumPlace {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .podiumPlace strong {
+    font-size: 14px;
+  }
+
   .matchStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 import type { ClientInput, ClientToServerEvents, EffectBurst, RoomState, ServerToClientEvents, StageId } from "../shared/types";
 import { currentPlatform as resolvePlatform, stage, stageMetrics, stagePlatforms, type Platform } from "../shared/stage-layout";
+import { playGameSound, unlockGameAudio } from "./game-audio";
 
 type Props = {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -240,6 +241,7 @@ export default function SkyRushGame({ socket, room, spectatingPlayerId, inputDis
       function beginJumpCharge() {
         const serverNow = Date.now() + serverClockOffsetRef.current;
         if (roomRef.current.startedAt && serverNow < roomRef.current.startedAt) return;
+        void unlockGameAudio();
         if (!keys.jump) {
           jumpStarted = performance.now();
           const me = roomRef.current.players.find((player) => player.id === socket.id);
@@ -352,13 +354,17 @@ function syncSprites(
       motionFx = { previousVy: player.vy, previousJumping: player.jumping, pushDirection: 1 };
       motionFxByPlayer.set(player.id, motionFx);
     }
-    if (player.jumping && !motionFx.previousJumping && player.vy < 0) motionFx.launchAt = now;
-    if (motionFx.previousVy > 120 && Math.abs(player.vy) < 1 && !player.jumping) motionFx.landAt = now;
+    const launched = player.jumping && !motionFx.previousJumping && player.vy < 0;
+    const landed = motionFx.previousVy > 120 && Math.abs(player.vy) < 1 && !player.jumping;
+    const isLocal = player.id === localPlayerId;
+    if (launched) motionFx.launchAt = now;
+    if (landed) motionFx.landAt = now;
+    if (isLocal && launched) playGameSound("jump");
+    if (isLocal && landed) playGameSound("land");
     motionFx.previousVy = player.vy;
     motionFx.previousJumping = player.jumping;
 
     const chargeRatio = player.id === localPlayerId && !player.jumping ? localChargeRatio : 0;
-    const isLocal = player.id === localPlayerId;
     updatePlayerSprite(group, player, motionFx, chargeRatio, now, isLocal);
     if (label) {
       const crowded = racers.length >= 12;
