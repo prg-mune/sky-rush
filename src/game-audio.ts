@@ -1,4 +1,4 @@
-export type GameSound = "jump" | "land" | "goal" | "result";
+export type GameSound = "countdown" | "start" | "jump" | "land" | "goal" | "result";
 
 const AUDIO_STORAGE_KEY = "sky-rush-sound-enabled";
 let audioContext: AudioContext | null = null;
@@ -34,7 +34,13 @@ export function playGameSound(sound: GameSound) {
   void unlockGameAudio().then(() => {
     if (!audioContext || audioContext.state !== "running") return;
     const now = audioContext.currentTime;
-    if (sound === "jump") {
+    if (sound === "countdown") {
+      tone(440, 430, 0.1, now, "square", 0.07);
+      tone(660, 640, 0.06, now + 0.025, "sine", 0.045);
+    } else if (sound === "start") {
+      tone(523.25, 783.99, 0.2, now, "triangle", 0.13);
+      tone(783.99, 1046.5, 0.19, now + 0.1, "sine", 0.1);
+    } else if (sound === "jump") {
       tone(260, 520, 0.13, now, "sine", 0.12);
       tone(520, 650, 0.07, now + 0.06, "triangle", 0.06);
     } else if (sound === "land") {

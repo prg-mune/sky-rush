@@ -62,6 +62,7 @@ export default function Home() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showGoalCelebration, setShowGoalCelebration] = useState(false);
   const localFinishedAtRef = useRef<number | undefined>();
+  const lastCountdownLabelRef = useRef("");
 
   useEffect(() => {
     setSoundEnabled(loadGameAudioPreference());
@@ -194,6 +195,17 @@ export default function Home() {
   const matchTimeLeftMs = Math.max(0, (room?.timeoutAt || 0) - synchronizedNow);
   const isLastSpurt = Boolean(me && room && me.altitude > stageClimbHeight(room.stageId) * 0.84 && !room.finishedAt);
   const isSpectator = Boolean((me?.finishedAt || me?.retiredAt || me?.spectator) && room && !room.finishedAt);
+
+  useEffect(() => {
+    if (screen !== "game") {
+      lastCountdownLabelRef.current = "";
+      return;
+    }
+    const previousLabel = lastCountdownLabelRef.current;
+    if (countdownLabel && countdownLabel !== previousLabel) playGameSound("countdown");
+    if (!countdownLabel && previousLabel) playGameSound("start");
+    lastCountdownLabelRef.current = countdownLabel;
+  }, [countdownLabel, screen]);
 
   useEffect(() => {
     if (!me?.finishedAt) {
