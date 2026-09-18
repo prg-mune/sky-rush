@@ -1,5 +1,7 @@
 import dynamic from "next/dynamic";
+import { BookOpen, House, QrCode, Volume2, VolumeX } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { io, type Socket } from "socket.io-client";
 import { loadGameAudioPreference, playGameSound, setGameAudioEnabled, unlockGameAudio } from "../src/game-audio";
 import type {
@@ -59,13 +61,19 @@ export default function Home() {
   const [broadcastMode, setBroadcastMode] = useState(false);
   const [roleChanging, setRoleChanging] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showMobileEntry, setShowMobileEntry] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showGoalCelebration, setShowGoalCelebration] = useState(false);
+  const [entryUrl, setEntryUrl] = useState("");
   const localFinishedAtRef = useRef<number | undefined>();
   const lastCountdownLabelRef = useRef("");
 
   useEffect(() => {
     setSoundEnabled(loadGameAudioPreference());
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    setEntryUrl(url.toString());
   }, []);
 
   useEffect(() => {
@@ -370,6 +378,50 @@ export default function Home() {
     if (nextEnabled) void unlockGameAudio();
   }
 
+  async function copyEntryUrl() {
+    if (!entryUrl) return;
+    let copied = false;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(entryUrl);
+        copied = true;
+      }
+    } catch {
+      // Fall through to the browser-compatible copy command below.
+    }
+    if (!copied) {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = entryUrl;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("Copy command failed");
+      } catch {
+        setNotice({ kind: "warning", text: "参加リンクをコピーできませんでした" });
+        return;
+      }
+    }
+    setNotice({ kind: "success", text: "参加リンクをコピーしました" });
+  }
+
+  async function shareEntryUrl() {
+    if (!entryUrl) return;
+    if (!navigator.share) {
+      await copyEntryUrl();
+      return;
+    }
+    try {
+      await navigator.share({ title: "Sky Rush", text: "Sky Rushに参加", url: entryUrl });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setNotice({ kind: "warning", text: "参加リンクを共有できませんでした" });
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -377,11 +429,24 @@ export default function Home() {
           <h1 className="titleLogo" aria-label="Sky Rush">SKY RUSH</h1>
         </div>
         <div className="topbarActions">
-          <button type="button" className="soundToggle" aria-pressed={soundEnabled} onClick={toggleSound} title={soundEnabled ? "効果音をオフにする" : "効果音をオンにする"}>
-            音声 {soundEnabled ? "オン" : "オフ"}
+          <button type="button" className="soundToggle" aria-label={`サウンドを${soundEnabled ? "オフ" : "オン"}にする`} aria-pressed={soundEnabled} onClick={toggleSound} title={soundEnabled ? "サウンドをオフにする" : "サウンドをオンにする"}>
+            {soundEnabled ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
+            <span>サウンド</span>
           </button>
-          <button type="button" onClick={() => setShowRules(true)}>ルール</button>
-          {screen !== "login" && <button onClick={leaveToLobby}>ロビー</button>}
+          <button type="button" onClick={() => setShowMobileEntry(true)} title="参加用QRコードを表示">
+            <QrCode aria-hidden="true" />
+            <span>QR</span>
+          </button>
+          <button type="button" onClick={() => setShowRules(true)} title="遊び方を表示">
+            <BookOpen aria-hidden="true" />
+            <span>遊び方</span>
+          </button>
+          {screen !== "login" && (
+            <button type="button" onClick={leaveToLobby} title="ロビーへ戻る">
+              <House aria-hidden="true" />
+              <span>ロビー</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -455,41 +520,69 @@ export default function Home() {
         </section>
       )}
 
-      {screen === "login" && (
-        <section className="panel auth">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">入場ゲート</p>
-              <h2>ログイン</h2>
+      {showMobileEntry && (
+        <section className="rulesOverlay" role="dialog" aria-modal="true" aria-label="スマホで参加">
+          <div className="mobileEntryPanel">
+            <div className="panelHeader">
+              <div>
+                <p className="eyebrow">モバイルエントリー</p>
+                <h2>スマホで参加</h2>
+              </div>
+              <button type="button" onClick={() => setShowMobileEntry(false)}>閉じる</button>
             </div>
-            <span className="panelBadge">v1.1 · ビルド {BUILD_COMMIT}</span>
+            <p className="mobileEntryLead">QRコードを読み取るか、参加リンクを共有してください。</p>
+            <div className="entryQr">
+              {entryUrl && <QRCodeSVG value={entryUrl} size={196} level="M" marginSize={2} title="Sky Rush参加URL" />}
+            </div>
+            <code className="entryUrl" title={entryUrl}>{entryUrl}</code>
+            {entryUrl && isLoopbackUrl(entryUrl) && (
+              <small className="entryLocalNote">このローカルURLは別端末から開けません。デプロイ後は公開URLのQRに自動で切り替わります。</small>
+            )}
+            <div className="mobileEntryActions">
+              <button type="button" onClick={() => void copyEntryUrl()}>リンクをコピー</button>
+              <button type="button" className="primary" onClick={() => void shareEntryUrl()}>共有</button>
+            </div>
           </div>
-          <label>
-            プレイヤー名
-            <input
-              value={playerName}
-              onChange={(event) => setPlayerName(event.target.value)}
-              placeholder="Player01"
-              maxLength={16}
-              autoComplete="off"
-              name="sky-rush-player-name"
-            />
-          </label>
-          <label>
-            パスコード
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type="text"
-              placeholder="progress4649"
-              autoComplete="one-time-code"
-              inputMode="text"
-              name="sky-rush-entry-code"
-              className="passcodeInput"
-            />
-          </label>
-          <button className="primary" disabled={!isConnected || !playerName.trim() || !password} onClick={login}>入る</button>
         </section>
+      )}
+
+      {screen === "login" && (
+        <div className="authLayout">
+          <section className="panel auth">
+            <div className="panelHeader">
+              <div>
+                <p className="eyebrow">入場ゲート</p>
+                <h2>ログイン</h2>
+              </div>
+              <span className="panelBadge">v1.1 · ビルド {BUILD_COMMIT}</span>
+            </div>
+            <label>
+              プレイヤー名
+              <input
+                value={playerName}
+                onChange={(event) => setPlayerName(event.target.value)}
+                placeholder="Player01"
+                maxLength={16}
+                autoComplete="off"
+                name="sky-rush-player-name"
+              />
+            </label>
+            <label>
+              パスコード
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                type="text"
+                placeholder="progress4649"
+                autoComplete="one-time-code"
+                inputMode="text"
+                name="sky-rush-entry-code"
+                className="passcodeInput"
+              />
+            </label>
+            <button className="primary" disabled={!isConnected || !playerName.trim() || !password} onClick={login}>入る</button>
+          </section>
+        </div>
       )}
 
       {screen === "lobby" && (
@@ -907,6 +1000,15 @@ function resultPerformance(row: ResultRow) {
   if (row.retired) return "リタイア";
   if (row.goalTimeMs !== undefined) return `${(row.goalTimeMs / 1000).toFixed(2)}秒`;
   return `${row.altitude}m`;
+}
+
+function isLoopbackUrl(value: string) {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
 }
 
 function csvCell(value: string | number) {

@@ -79,6 +79,21 @@ button:disabled {
   gap: 10px;
 }
 
+.topbarActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+}
+
+.topbarActions svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
 .soundToggle[aria-pressed="true"] {
   border-color: #62d2ff;
   background: #173e50;
@@ -337,8 +352,77 @@ h2 {
   white-space: nowrap;
 }
 
-.auth {
+.authLayout {
   width: min(460px, 100%);
+}
+
+.auth {
+  width: 100%;
+}
+
+.entryQr {
+  display: grid;
+  width: 220px;
+  height: 220px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.entryQr svg {
+  display: block;
+  width: 196px;
+  height: 196px;
+}
+
+.mobileEntryPanel {
+  width: min(420px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid #5c9fc0;
+  border-radius: 8px;
+  padding: 22px;
+  background: linear-gradient(180deg, rgba(35, 88, 118, 0.98), rgba(14, 28, 40, 0.98));
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mobileEntryLead {
+  margin: -4px 0 16px;
+  color: #cbdce8;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.mobileEntryPanel .entryQr {
+  margin: 0 auto;
+}
+
+.entryUrl {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  overflow: hidden;
+  color: #d6e7f2;
+  font-family: "Noto Sans JP", sans-serif;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entryLocalNote {
+  display: block;
+  margin-top: 8px;
+  color: #9eb4c4;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.mobileEntryActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 label {
@@ -1724,6 +1808,15 @@ tbody tr:nth-child(1) td {
   .rulesPanel {
     max-height: calc(100vh - 24px);
     padding: 16px;
+  }
+
+  .mobileEntryPanel {
+    max-height: calc(100vh - 24px);
+    padding: 16px;
+  }
+
+  .mobileEntryActions {
+    grid-template-columns: 1fr;
   }
 
   .altitudeMap {
